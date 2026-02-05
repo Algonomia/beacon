@@ -1,0 +1,83 @@
+{{- if .Values.grafana.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: {{ include "beacon.namespace" . }}
+  labels:
+    {{- include "beacon.labels" . | nindent 4 }}
+    {{- include "beacon.componentLabels" "grafana" | nindent 4 }}
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      containers:
+      - name: grafana
+        image: {{ .Values.grafana.image.repository }}:{{ .Values.grafana.image.tag }}
+        imagePullPolicy: {{ .Values.grafana.image.pullPolicy }}
+        ports:
+        - containerPort: {{ .Values.grafana.service.port }}
+          name: http
+        env:
+        - name: GF_SECURITY_ADMIN_USER
+          valueFrom:
+            secretKeyRef:
+              name: grafana-admin
+              key: admin-user
+        - name: GF_SECURITY_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: grafana-admin
+              key: admin-password
+        - name: GF_SERVER_ROOT_URL
+          value: {{ .Values.grafana.rootUrl | quote }}
+        - name: GF_SERVER_SERVE_FROM_SUB_PATH
+          value: {{ .Values.grafana.serveFromSubPath | quote }}
+        - name: GF_USERS_DEFAULT_THEME
+          value: {{ .Values.grafana.defaultTheme | quote }}
+        - name: GF_AUTH_ANONYMOUS_ENABLED
+          value: {{ .Values.grafana.anonymousEnabled | quote }}
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: http
+          initialDelaySeconds: 20
+          periodSeconds: 15
+        resources:
+          {{- toYaml .Values.grafana.resources | nindent 10 }}
+        volumeMounts:
+        - name: datasources
+          mountPath: /etc/grafana/provisioning/datasources
+        - name: dashboard-provider
+          mountPath: /etc/grafana/provisioning/dashboards
+        - name: dashboards
+          mountPath: /var/lib/grafana/dashboards
+        - name: alerting
+          mountPath: /etc/grafana/provisioning/alerting
+        - name: storage
+          mountPath: /var/lib/grafana
+      volumes:
+      - name: datasources
+        configMap:
+          name: grafana-datasources
+      - name: dashboard-provider
+        configMap:
+          name: grafana-dashboard-provider
+      - name: dashboards
+        configMap:
+          name: grafana-dashboard-odd
+      - name: alerting
+        configMap:
+          name: grafana-alerting
+      - name: storage
+        persistentVolumeClaim:
+          claimName: grafana-storage
+{{- end }}

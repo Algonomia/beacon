@@ -1,0 +1,46 @@
+🔭 Observability Stack has been deployed!
+
+Components installed:
+{{- if .Values.prometheus.enabled }}
+  ✓ Prometheus  - Metrics collection and storage
+{{- end }}
+{{- if .Values.loki.enabled }}
+  ✓ Loki        - Log aggregation
+{{- end }}
+{{- if .Values.tempo.enabled }}
+  ✓ Tempo       - Distributed tracing
+{{- end }}
+{{- if .Values.alloy.enabled }}
+  ✓ Alloy       - Telemetry pipeline (OTLP + Faro RUM)
+{{- end }}
+{{- if .Values.promtail.enabled }}
+  ✓ Promtail    - Log collection (DaemonSet)
+{{- end }}
+{{- if .Values.blackboxExporter.enabled }}
+  ✓ Blackbox    - Endpoint probing
+{{- end }}
+{{- if .Values.grafana.enabled }}
+  ✓ Grafana     - Visualization and dashboards
+{{- end }}
+
+Access Grafana:
+{{- if .Values.grafana.enabled }}
+{{- if .Values.grafana.ingress.enabled }}
+  URL: https://{{ .Values.grafana.ingress.host }}{{ .Values.grafana.ingress.path }}
+{{- else }}
+  Port-forward: kubectl port-forward -n {{ include "beacon.namespace" . }} svc/grafana 3000:3000
+  Then visit: http://localhost:3000
+{{- end }}
+  Username: {{ .Values.grafana.admin.user }}
+  Password: {{ .Values.grafana.admin.password }}
+{{- end }}
+
+Internal endpoints:
+  Prometheus:  http://prometheus.{{ include "beacon.namespace" . }}.svc:9090
+  Loki:        http://loki.{{ include "beacon.namespace" . }}.svc:3100
+  Tempo:       http://tempo.{{ include "beacon.namespace" . }}.svc:3200
+  Alloy OTLP:  http://alloy.{{ include "beacon.namespace" . }}.svc:4318
+
+To check the status:
+  helm status {{ .Release.Name }} -n {{ .Release.Namespace }}
+  kubectl get all -n {{ include "beacon.namespace" . }} -l app.kubernetes.io/instance={{ .Release.Name }}

@@ -1,0 +1,159 @@
+{{- if .Values.alloy.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alloy-config
+  namespace: {{ include "beacon.namespace" . }}
+  labels:
+    {{- include "beacon.labels" . | nindent 4 }}
+    {{- include "beacon.componentLabels" "alloy" | nindent 4 }}
+data:
+  config.alloy: |
+    // =============================================================================
+    // Grafana Alloy Configuration
+    // Receives OTLP telemetry from backend services
+    // =============================================================================
+
+    // OTLP receiver for backend telemetry
+    otelcol.receiver.otlp "backend" {
+      grpc {
+        endpoint = "0.0.0.0:{{ .Values.alloy.service.otlpGrpcPort }}"
+      }
+
+      http {
+        endpoint = "0.0.0.0:{{ .Values.alloy.service.otlpHttpPort }}"
+        cors {
+          allowed_origins = ["*"]
+        }
+      }
+
+      output {
+        metrics = [otelcol.exporter.prometheus.default.input]
+        traces  = [otelcol.exporter.otlp.tempo.input]
+        logs    = [otelcol.exporter.loki.default.input]
+      }
+    }
+
+    // Loki receiver for Promtail (stdout/stderr logs)
+    loki.source.api "promtail" {
+      http {
+        listen_address = "0.0.0.0"
+        listen_port = {{ .Values.alloy.service.lokiPushPort }}
+      }
+      forward_to = [loki.write.default.receiver]
+      // Keep labels sent by Promtail (app, namespace, etc.)
+    }
+
+    // Export metrics for Prometheus to scrape
+    otelcol.exporter.prometheus "default" {
+      forward_to = [prometheus.remote_write.default.receiver]
+    }
+
+    prometheus.remote_write "default" {
+      endpoint {
+        url = "http://prometheus:{{ .Values.prometheus.service.port }}/api/v1/write"
+      }
+    }
+
+    // Export traces to Tempo
+    otelcol.exporter.otlp "tempo" {
+      client {
+        endpoint = "tempo:{{ .Values.tempo.service.otlpGrpcPort }}"
+        tls {
+          insecure = true
+        }
+      }
+    }
+
+    // Export logs to Loki
+    otelcol.exporter.loki "default" {
+      forward_to = [loki.write.default.receiver]
+    }
+
+    loki.write "default" {
+      endpoint {
+        url = "http://loki:{{ .Values.loki.service.port }}/loki/api/v1/push"
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alloy
+  namespace: {{ include "beacon.namespace" . }}
+  labels:
+    {{- include "beacon.labels" . | nindent 4 }}
+    {{- include "beacon.componentLabels" "alloy" | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: alloy
+  template:
+    metadata:
+      labels:
+        app: alloy
+    spec:
+      containers:
+        - name: alloy
+          image: {{ .Values.alloy.image.repository }}:{{ .Values.alloy.image.tag }}
+          imagePullPolicy: {{ .Values.alloy.image.pullPolicy }}
+          args:
+            - run
+            - /etc/alloy/config.alloy
+            - --server.http.listen-addr=0.0.0.0:{{ .Values.alloy.service.httpPort }}
+            - --storage.path=/var/lib/alloy/data
+          ports:
+            - containerPort: {{ .Values.alloy.service.otlpGrpcPort }}
+              name: otlp-grpc
+            - containerPort: {{ .Values.alloy.service.otlpHttpPort }}
+              name: otlp-http
+            - containerPort: {{ .Values.alloy.service.httpPort }}
+              name: http
+            - containerPort: {{ .Values.alloy.service.lokiPushPort }}
+              name: loki-push
+          volumeMounts:
+            - name: config
+              mountPath: /etc/alloy
+            - name: data
+              mountPath: /var/lib/alloy/data
+          resources:
+            {{- toYaml .Values.alloy.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: alloy-config
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: alloy
+  namespace: {{ include "beacon.namespace" . }}
+  labels:
+    {{- include "beacon.labels" . | nindent 4 }}
+    {{- include "beacon.componentLabels" "alloy" | nindent 4 }}
+spec:
+  type: {{ .Values.alloy.service.type }}
+  selector:
+    app: alloy
+  ports:
+    - port: {{ .Values.alloy.service.otlpGrpcPort }}
+      targetPort: otlp-grpc
+      name: otlp-grpc
+      protocol: TCP
+    - port: {{ .Values.alloy.service.otlpHttpPort }}
+      targetPort: otlp-http
+      name: otlp-http
+      protocol: TCP
+    - port: {{ .Values.alloy.service.httpPort }}
+      targetPort: http
+      name: http
+      protocol: TCP
+    - port: {{ .Values.alloy.service.lokiPushPort }}
+      targetPort: loki-push
+      name: loki-push
+      protocol: TCP
+{{- end }}
