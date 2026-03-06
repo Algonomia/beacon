@@ -37,6 +37,10 @@ healthCheckTargets:
   #   url: http://postgres:5432
   #   module: tcp_connect
 
+storageMonitoring:
+  enabled: false
+  target: lukscryptwalker-csi-metrics.kube-system.svc:9090
+
 # Prometheus configuration
 prometheus:
   enabled: true
