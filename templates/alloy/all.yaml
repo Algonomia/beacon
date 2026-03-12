@@ -76,6 +76,32 @@ data:
         url = "http://loki:{{ .Values.loki.service.port }}/loki/api/v1/push"
       }
     }
+
+    // Faro receiver for frontend RUM telemetry
+    faro.receiver "default" {
+      server {
+        listen_address = "0.0.0.0"
+        listen_port = {{ .Values.alloy.service.faroPort }}
+        cors_allowed_origins = ["*"]
+      }
+
+      output {
+        logs   = [loki.process.faro.receiver]
+        traces = [otelcol.exporter.otlp.tempo.input]
+      }
+    }
+
+    // Add required labels to Faro logs before sending to Loki
+    loki.process "faro" {
+      stage.static_labels {
+        values = {
+          job      = "faro",
+          source   = "frontend",
+        }
+      }
+
+      forward_to = [loki.write.default.receiver]
+    }
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -113,6 +139,8 @@ spec:
               name: http
             - containerPort: {{ .Values.alloy.service.lokiPushPort }}
               name: loki-push
+            - containerPort: {{ .Values.alloy.service.faroPort }}
+              name: faro
           volumeMounts:
             - name: config
               mountPath: /etc/alloy
@@ -155,5 +183,9 @@ spec:
     - port: {{ .Values.alloy.service.lokiPushPort }}
       targetPort: loki-push
       name: loki-push
+      protocol: TCP
+    - port: {{ .Values.alloy.service.faroPort }}
+      targetPort: faro
+      name: faro
       protocol: TCP
 {{- end }}
