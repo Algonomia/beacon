@@ -63,6 +63,18 @@ data:
       {{- end }}
       {{- end }}
 
+      {{- if .Values.kubeStateMetrics.enabled }}
+      - job_name: 'kube-state-metrics'
+        static_configs:
+          - targets: ['kube-state-metrics:8080']
+      {{- end }}
+
+      {{- if .Values.nodeExporter.enabled }}
+      - job_name: 'node-exporter'
+        static_configs:
+          - targets: ['node-exporter:9100']
+      {{- end }}
+
       {{- if .Values.extraScrapeConfigs }}
 {{ .Values.extraScrapeConfigs | indent 6 }}
       {{- end }}
