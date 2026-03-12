@@ -118,6 +118,100 @@ helm install observability . \\
   --namespace observability
 ```
 
+## Consumer Integration
+
+Beacon is a pure infrastructure chart. Projects add their own dashboards, alerts, and scrape targets by providing ConfigMaps and overriding values.
+
+### Adding Dashboards
+
+Create a ConfigMap in your project's Kubernetes manifests containing the Grafana dashboard JSON:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-myproject
+  namespace: observability
+data:
+  my-dashboard.json: |
+    {
+      "title": "My Project",
+      "panels": [ ... ]
+    }
+```
+
+Then add it to your beacon values override:
+
+```yaml
+grafana:
+  dashboardConfigMaps:
+    - grafana-dashboard-myproject
+```
+
+### Adding Alerts
+
+Create a ConfigMap with Grafana alerting rules:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-alerting-myproject
+  namespace: observability
+data:
+  alertrules.yaml: |
+    apiVersion: 1
+    groups:
+      - orgId: 1
+        name: My Alerts
+        folder: My Project
+        interval: 1m
+        rules:
+          - uid: my-alert-1
+            title: Service Down
+            condition: C
+            data:
+              - refId: A
+                datasourceUid: prometheus
+                model:
+                  expr: up{job="my-service"} == 0
+              - refId: B
+                datasourceUid: __expr__
+                model:
+                  type: reduce
+                  expression: A
+                  reducer: last
+              - refId: C
+                datasourceUid: __expr__
+                model:
+                  type: threshold
+                  expression: B
+                  conditions:
+                    - evaluator: { type: lt, params: [1] }
+            for: 1m
+            labels:
+              severity: critical
+```
+
+Then reference it in values:
+
+```yaml
+grafana:
+  alertingConfigMaps:
+    - grafana-alerting-myproject
+```
+
+### Adding Scrape Targets
+
+Use `extraScrapeConfigs` to add Prometheus scrape targets:
+
+```yaml
+extraScrapeConfigs: |
+  - job_name: 'my-exporter'
+    static_configs:
+      - targets: ["my-exporter:9187"]
+```
+
 ## Architecture
 
 ```

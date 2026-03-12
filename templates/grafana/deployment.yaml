@@ -60,8 +60,10 @@ spec:
           mountPath: /etc/grafana/provisioning/dashboards
         - name: dashboards
           mountPath: /var/lib/grafana/dashboards
+        {{- if .Values.grafana.alertingConfigMaps }}
         - name: alerting
           mountPath: /etc/grafana/provisioning/alerting
+        {{- end }}
         - name: storage
           mountPath: /var/lib/grafana
       volumes:
@@ -72,11 +74,25 @@ spec:
         configMap:
           name: grafana-dashboard-provider
       - name: dashboards
-        configMap:
-          name: grafana-dashboard-odd
+        projected:
+          sources:
+          {{- if .Values.grafana.dashboardConfigMaps }}
+          {{- range .Values.grafana.dashboardConfigMaps }}
+            - configMap:
+                name: {{ . }}
+          {{- end }}
+          {{- else }}
+            []
+          {{- end }}
+      {{- if .Values.grafana.alertingConfigMaps }}
       - name: alerting
-        configMap:
-          name: grafana-alerting
+        projected:
+          sources:
+          {{- range .Values.grafana.alertingConfigMaps }}
+            - configMap:
+                name: {{ . }}
+          {{- end }}
+      {{- end }}
       - name: storage
         persistentVolumeClaim:
           claimName: grafana-storage

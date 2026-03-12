@@ -39,14 +39,6 @@ data:
           - targets: ['loki:{{ .Values.loki.service.port }}']
       {{- end }}
 
-      {{- if .Values.storageMonitoring.enabled }}
-      - job_name: 'lukscryptwalker-csi'
-        metrics_path: /metrics
-        static_configs:
-          - targets:
-            - {{ .Values.storageMonitoring.target }}
-      {{- end }}
-
       {{- if .Values.blackboxExporter.enabled }}
       - job_name: 'blackbox-exporter'
         static_configs:
@@ -69,5 +61,9 @@ data:
           - target_label: __address__
             replacement: blackbox-exporter:{{ $.Values.blackboxExporter.service.port }}
       {{- end }}
+      {{- end }}
+
+      {{- if .Values.extraScrapeConfigs }}
+{{ .Values.extraScrapeConfigs | indent 6 }}
       {{- end }}
 {{- end }}

@@ -12,12 +12,11 @@ global:
 
 # Promtail log collection targets
 promtailTargets:
-  # Example: Collect logs from your backend pods
+  # Example: Collect logs from pods matching a pattern
   - namespace: default
-    podPattern: "*backend*"
+    podPattern: "*app*"
     labels:
-      app: backend
-  # Add more targets as needed:
+      app: my-app
   # - namespace: production
   #   podPattern: "*api*"
   #   labels:
@@ -25,21 +24,21 @@ promtailTargets:
 
 # Health check targets for Blackbox Exporter
 healthCheckTargets:
-  # Example: Monitor your backend service health endpoint
-  - name: backend
-    url: http://backend:80/health
+  # Example: Monitor a service health endpoint
+  - name: my-service
+    url: http://my-service:80/health
     module: http_2xx
-  # Add more health checks:
-  # - name: api
-  #   url: http://api-service:80/healthz
-  #   module: http_2xx
   # - name: database
   #   url: http://postgres:5432
   #   module: tcp_connect
 
-storageMonitoring:
-  enabled: false
-  target: lukscryptwalker-csi-metrics.kube-system.svc:9090
+# Extra Prometheus scrape configs (passed through verbatim)
+extraScrapeConfigs: ""
+  # Example:
+  # extraScrapeConfigs: |
+  #   - job_name: 'my-exporter'
+  #     static_configs:
+  #       - targets: ["my-exporter:9187"]
 
 # Prometheus configuration
 prometheus:
@@ -227,3 +226,9 @@ grafana:
   serveFromSubPath: true
   defaultTheme: dark
   anonymousEnabled: false
+
+  # Consumer-provided ConfigMaps for dashboards and alerting
+  dashboardConfigMaps: []
+    # - grafana-dashboard-myproject
+  alertingConfigMaps: []
+    # - grafana-alerting-myproject
