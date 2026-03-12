@@ -75,6 +75,13 @@ data:
           - targets: ['node-exporter:9100']
       {{- end }}
 
+      {{- if .Values.ingressMonitoring.enabled }}
+      - job_name: 'nginx-ingress'
+        metrics_path: /metrics
+        static_configs:
+          - targets: ['{{ .Values.ingressMonitoring.target }}']
+      {{- end }}
+
       {{- if .Values.extraScrapeConfigs }}
 {{ .Values.extraScrapeConfigs | indent 6 }}
       {{- end }}

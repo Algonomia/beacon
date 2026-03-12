@@ -68,6 +68,11 @@ nodeExporter:
       cpu: 100m
       memory: 64Mi
 
+# Ingress monitoring
+ingressMonitoring:
+  enabled: false
+  target: ingress-nginx-controller-metrics.ingress-nginx.svc:10254
+
 # Prometheus configuration
 prometheus:
   enabled: true
