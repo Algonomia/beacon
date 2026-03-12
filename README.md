@@ -120,90 +120,75 @@ helm install observability . \\
 
 ## Consumer Integration
 
-Beacon is a pure infrastructure chart. Projects add their own dashboards, alerts, and scrape targets by providing ConfigMaps and overriding values.
+Beacon is a pure infrastructure chart. Consumer projects (applications that use beacon for monitoring) provide their own dashboards, alerts, and scrape targets via ConfigMaps. Grafana mounts these ConfigMaps using **projected volumes** driven by the `dashboardConfigMaps` and `alertingConfigMaps` values.
 
-### Adding Dashboards
+There are two supported consumer models:
 
-Create a ConfigMap in your project's Kubernetes manifests containing the Grafana dashboard JSON:
+### Model A: Standalone ConfigMaps (recommended for most projects)
+
+Create ConfigMaps in your project's kubernetes manifests containing Grafana dashboard JSON and alert rules. Apply them to the same namespace as beacon before deploying.
+
+**Dashboard ConfigMap:**
 
 ```yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: grafana-dashboard-myproject
-  namespace: observability
+  namespace: <namespace>
 data:
-  my-dashboard.json: |
-    {
-      "title": "My Project",
-      "panels": [ ... ]
-    }
+  myproject-monitoring.json: |
+    { "title": "My Project", "uid": "myproject", "panels": [ ... ] }
 ```
 
-Then add it to your beacon values override:
-
-```yaml
-grafana:
-  dashboardConfigMaps:
-    - grafana-dashboard-myproject
-```
-
-### Adding Alerts
-
-Create a ConfigMap with Grafana alerting rules:
+**Alert rules ConfigMap:**
 
 ```yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: grafana-alerting-myproject
-  namespace: observability
+  namespace: <namespace>
 data:
-  alertrules.yaml: |
+  myproject-alertrules.yaml: |
     apiVersion: 1
     groups:
       - orgId: 1
         name: My Alerts
         folder: My Project
-        interval: 1m
-        rules:
-          - uid: my-alert-1
-            title: Service Down
-            condition: C
-            data:
-              - refId: A
-                datasourceUid: prometheus
-                model:
-                  expr: up{job="my-service"} == 0
-              - refId: B
-                datasourceUid: __expr__
-                model:
-                  type: reduce
-                  expression: A
-                  reducer: last
-              - refId: C
-                datasourceUid: __expr__
-                model:
-                  type: threshold
-                  expression: B
-                  conditions:
-                    - evaluator: { type: lt, params: [1] }
-            for: 1m
-            labels:
-              severity: critical
+        rules: [ ... ]
 ```
 
-Then reference it in values:
+Then reference them in beacon's values so Grafana mounts them via projected volumes:
 
 ```yaml
 grafana:
+  dashboardConfigMaps:
+    - grafana-dashboard-myproject
   alertingConfigMaps:
     - grafana-alerting-myproject
 ```
 
+### Model B: Subchart wrapper (for projects needing helm templating)
+
+If your dashboards need helm template rendering (e.g., parameterized job names), create a wrapper chart with beacon as a dependency:
+
+```yaml
+# my-observability/Chart.yaml
+apiVersion: v2
+name: my-observability
+version: 1.0.0
+dependencies:
+  - name: beacon
+    version: "1.0.0"
+    repository: "file://../../beacon"
+```
+
+Place consumer ConfigMap templates in `my-observability/templates/`. Nest beacon values under the `beacon:` key in your values.yaml.
+
 ### Adding Scrape Targets
 
-Use `extraScrapeConfigs` to add Prometheus scrape targets:
+Use `extraScrapeConfigs` in values to add Prometheus scrape targets:
 
 ```yaml
 extraScrapeConfigs: |
