@@ -8,8 +8,10 @@ metadata:
   labels:
     {{- include "beacon.labels" . | nindent 4 }}
     {{- include "beacon.componentLabels" "alloy" | nindent 4 }}
+  {{- with .Values.alloy.ingress.annotations }}
   annotations:
-    {{- toYaml .Values.alloy.ingress.annotations | nindent 4 }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
   ingressClassName: {{ .Values.alloy.ingress.className }}
   {{- if .Values.alloy.ingress.tls }}
