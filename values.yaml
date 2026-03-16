@@ -11,16 +11,21 @@ global:
   appName: my-app
 
 # Promtail log collection targets
-promtailTargets:
-  # Example: Collect logs from pods matching a pattern
-  - namespace: default
-    podPattern: "*app*"
-    labels:
-      app: my-app
-  # - namespace: production
-  #   podPattern: "*api*"
+# Each target scrapes /var/log/pods/<namespace>_<podPattern>/*/*.log
+# Optional "pipeline" adds Promtail pipeline_stages for parsing
+promtailTargets: []
+  # Example:
+  # - namespace: my-namespace
+  #   podPattern: "my-app-*"
   #   labels:
-  #     app: api-service
+  #     app: my-app
+  #   pipeline:
+  #     - cri: {}
+  #     - json:
+  #         expressions:
+  #           level: level
+  #     - labels:
+  #         level:
 
 # Health check targets for Blackbox Exporter
 healthCheckTargets:
@@ -71,7 +76,7 @@ nodeExporter:
 # Storage monitoring (e.g. lukscryptwalker-csi)
 storageMonitoring:
   enabled: false
-  target: lukscryptwalker-csi.kube-system.svc:9100
+  target: lukscryptwalker-csi-metrics.kube-system.svc:9090
 
 # Ingress monitoring
 ingressMonitoring:
