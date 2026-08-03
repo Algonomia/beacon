@@ -19,6 +19,10 @@ spec:
       labels:
         app: grafana
     spec:
+      {{- with .Values.grafana.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
       - name: grafana
         image: {{ .Values.grafana.image.repository }}:{{ .Values.grafana.image.tag }}

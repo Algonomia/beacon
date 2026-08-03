@@ -286,6 +286,12 @@ grafana:
   # Grafana dashboard folder name (shown in Grafana sidebar)
   dashboardFolder: ""  # defaults to "General" if empty
 
+  podSecurityContext:
+    runAsUser: 472
+    runAsGroup: 472
+    fsGroup: 472
+    fsGroupChangePolicy: OnRootMismatch
+
   # Consumer-provided ConfigMaps for dashboards and alerting
   # Each ConfigMap is mounted via projected volumes into Grafana
   dashboardConfigMaps: []
