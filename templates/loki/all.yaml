@@ -83,6 +83,8 @@ spec:
       app: loki
   template:
     metadata:
+      annotations:
+        checksum/config: {{ include "beacon.configChecksum" (list .Values.loki.retention .Values.loki.service .Values.loki.storage) }}
       labels:
         app: loki
     spec:

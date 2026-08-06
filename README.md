@@ -179,6 +179,8 @@ prometheus:
 
 Every consumer-supplied ConfigMap is mounted as `optional`, so a name typo or a ConfigMap applied to the wrong namespace leaves the panels or rules missing rather than wedging the pod in `ContainerCreating`.
 
+Chart-owned config changes (scrape targets, promtail targets, retention, ports) roll the affected pod automatically via a `checksum/config` annotation. Consumer ConfigMaps live outside the chart, so beacon cannot checksum them: after editing one, restart the pod yourself — or, for Prometheus rules, `POST /-/reload` (the chart runs with `--web.enable-lifecycle`). Grafana picks up dashboard and alerting file changes on its own provisioning interval.
+
 Data keys must be unique across the listed ConfigMaps — a projected volume cannot merge two sources that expose the same key. The older `prometheus.alerts: true` gate still works and is equivalent to `rulesConfigMaps: ["prometheus-alerts"]`, but it allows only one consumer per namespace.
 
 ### Model B: Subchart wrapper (for projects needing helm templating)

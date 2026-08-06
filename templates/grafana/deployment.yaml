@@ -16,6 +16,9 @@ spec:
       app: grafana
   template:
     metadata:
+      annotations:
+        checksum/datasources: {{ include (print $.Template.BasePath "/grafana/configmap-datasources.yaml") . | sha256sum }}
+        checksum/dashboard-provider: {{ include (print $.Template.BasePath "/grafana/configmap-dashboard-provider.yaml") . | sha256sum }}
       labels:
         app: grafana
     spec:

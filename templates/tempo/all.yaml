@@ -75,6 +75,8 @@ spec:
       app: tempo
   template:
     metadata:
+      annotations:
+        checksum/config: {{ include "beacon.configChecksum" (list .Values.tempo.service .Values.tempo.storage) }}
       labels:
         app: tempo
     spec:

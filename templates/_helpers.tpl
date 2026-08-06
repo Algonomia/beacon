@@ -63,3 +63,13 @@ Namespace
 {{- define "beacon.namespace" -}}
 {{- .Values.global.namespace | default "default" }}
 {{- end }}
+
+{{/*
+Checksum of the values a component's inline config is rendered from, so the pod
+rolls when they change. Pass the sections the config interpolates, e.g.
+  {{ include "beacon.configChecksum" (list .Values.loki.service .Values.loki.storage) }}
+Components whose ConfigMap lives in its own file checksum that file instead.
+*/}}
+{{- define "beacon.configChecksum" -}}
+{{- toYaml . | sha256sum }}
+{{- end }}

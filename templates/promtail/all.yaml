@@ -98,6 +98,8 @@ spec:
       app: promtail
   template:
     metadata:
+      annotations:
+        checksum/config: {{ include "beacon.configChecksum" (list .Values.promtailTargets .Values.alloy.enabled .Values.alloy.service.lokiPushPort .Values.loki.service.port) }}
       labels:
         app: promtail
     spec:
