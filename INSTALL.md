@@ -4,7 +4,7 @@
 
 ```bash
 # From project root
-helm install observability ./kubernetes/observability-stack \
+helm install observability ./beacon \
   --namespace observability \
   --create-namespace
 ```
@@ -51,7 +51,7 @@ grafana:
   storage:
     size: 1Gi  # Dashboard storage
   admin:
-    password: CHANGE_ME_IN_PRODUCTION
+    password: ""
   resources:
     limits:
       cpu: 250m
@@ -87,7 +87,7 @@ healthCheckTargets:
 3. Install:
 
 ```bash
-helm install observability ./kubernetes/observability-stack \
+helm install observability ./beacon \
   --namespace observability \
   --create-namespace \
   --values custom-values.yaml
@@ -96,7 +96,7 @@ helm install observability ./kubernetes/observability-stack \
 ## Upgrade
 
 ```bash
-helm upgrade observability ./kubernetes/observability-stack \
+helm upgrade observability ./beacon \
   --namespace observability \
   --values custom-values.yaml
 ```
@@ -121,7 +121,7 @@ Expected output: All pods should be Running
 After installation, access Grafana at:
 - **URL**: https://example.com/monitoring/grafana
 - **Username**: admin
-- **Password**: changeme (CHANGE THIS!)
+- **Password**: generated on first install — `kubectl get secret -n <namespace> grafana-admin -o jsonpath='{.data.admin-password}' | base64 -d`
 
 ## Uninstall
 

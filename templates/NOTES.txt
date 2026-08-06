@@ -32,7 +32,7 @@ Access Grafana:
   Then visit: http://localhost:3000
 {{- end }}
   Username: {{ .Values.grafana.admin.user }}
-  Password: {{ .Values.grafana.admin.password }}
+  Password: kubectl get secret -n {{ include "beacon.namespace" . }} grafana-admin -o jsonpath='{.data.admin-password}' | base64 -d
 {{- end }}
 
 Internal endpoints:

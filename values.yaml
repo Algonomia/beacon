@@ -264,7 +264,7 @@ grafana:
 
   admin:
     user: admin
-    password: admin  # CHANGE IN PRODUCTION!
+    password: ""
 
   service:
     type: ClusterIP

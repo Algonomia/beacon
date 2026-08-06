@@ -24,27 +24,27 @@ A comprehensive, production-ready observability stack for Kubernetes.
 
 ```bash
 # Install with default values
-helm install observability . \\
-  --namespace observability \\
+helm install observability . \
+  --namespace observability \
   --create-namespace
 
 # Install with custom values
-helm install observability . \\
-  --namespace observability \\
-  --create-namespace \\
+helm install observability . \
+  --namespace observability \
+  --create-namespace \
   --values custom-values.yaml
 
 # Dry-run to see generated manifests
-helm install observability . \\
-  --namespace observability \\
+helm install observability . \
+  --namespace observability \
   --dry-run --debug
 ```
 
 ### Upgrade
 
 ```bash
-helm upgrade observability . \\
-  --namespace observability \\
+helm upgrade observability . \
+  --namespace observability \
   --values custom-values.yaml
 ```
 
@@ -79,7 +79,7 @@ grafana:
   enabled: true
   admin:
     user: admin
-    password: changeme  # CHANGE THIS!
+    password: ""
   ingress:
     enabled: true
     host: example.com
@@ -113,10 +113,19 @@ blackboxExporter:
 ```
 
 ```bash
-helm install observability . \\
-  --values minimal-values.yaml \\
+helm install observability . \
+  --values minimal-values.yaml \
   --namespace observability
 ```
+
+## Security defaults
+
+This chart optimises for a private cluster network, not a hostile one. Before exposing any component beyond the cluster, review:
+
+- **Grafana admin password** is generated on first install and stored in the `grafana-admin` Secret. Set `grafana.admin.password` to pin it. Upgrades keep the existing value rather than rotating it.
+- **Loki runs with `auth_enabled: false`** — any client reaching the service can read and write logs.
+- **Alloy's OTLP and Faro receivers allow all CORS origins** (`["*"]`), so any page can post telemetry if the receiver is reachable.
+- Nothing in the chart provisions NetworkPolicies.
 
 ## Consumer Integration
 
@@ -201,11 +210,11 @@ dependencies:
 ```
 
 ```bash
-git submodule add git@github.com:Algonomia/beacon.git my-observability/beacon
+git submodule add https://github.com/tcd0217/beacon.git my-observability/beacon
 helm dependency update my-observability
 ```
 
-A `file://` path that climbs out of the consumer repo (`file://../../../beacon`) resolves only on a machine where both repos happen to sit side by side. It fails in CI at packaging time, not at deploy time, so it breaks the pipeline rather than the cluster. Since beacon is a private repo, CI also needs a deploy key to clone the submodule.
+A `file://` path that climbs out of the consumer repo (`file://../../../beacon`) resolves only on a machine where both repos happen to sit side by side. Whether that breaks CI depends on whether your pipeline packages the chart at all — many do not, in which case the failure only hits whoever deploys by hand.
 
 Place consumer ConfigMap templates in `my-observability/templates/`. Nest beacon values under the `beacon:` key in your values.yaml.
 
@@ -258,7 +267,7 @@ extraScrapeConfigs: |
 After installation, Grafana will be available at:
 - **URL**: https://{{ domain }}{{ basePath }}/grafana
 - **Username**: admin (configurable)
-- **Password**: admin (CHANGE THIS!)
+- **Password**: generated on first install — `kubectl get secret -n <namespace> grafana-admin -o jsonpath='{.data.admin-password}' | base64 -d`
 
 ## Monitoring Targets
 
