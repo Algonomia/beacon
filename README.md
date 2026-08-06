@@ -177,6 +177,8 @@ prometheus:
     - prometheus-alerts-myproject
 ```
 
+Every consumer-supplied ConfigMap is mounted as `optional`, so a name typo or a ConfigMap applied to the wrong namespace leaves the panels or rules missing rather than wedging the pod in `ContainerCreating`.
+
 Data keys must be unique across the listed ConfigMaps — a projected volume cannot merge two sources that expose the same key. The older `prometheus.alerts: true` gate still works and is equivalent to `rulesConfigMaps: ["prometheus-alerts"]`, but it allows only one consumer per namespace.
 
 ### Model B: Subchart wrapper (for projects needing helm templating)

@@ -84,6 +84,7 @@ spec:
           {{- range .Values.grafana.dashboardConfigMaps }}
             - configMap:
                 name: {{ . }}
+                optional: true
           {{- end }}
           {{- else }}
             []
@@ -95,6 +96,7 @@ spec:
           {{- range .Values.grafana.alertingConfigMaps }}
             - configMap:
                 name: {{ . }}
+                optional: true
           {{- end }}
       {{- end }}
       - name: storage

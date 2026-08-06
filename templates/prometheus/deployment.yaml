@@ -62,6 +62,7 @@ spec:
             {{- range $ruleConfigMaps }}
               - configMap:
                   name: {{ . }}
+                  optional: true
             {{- end }}
         {{- end }}
 {{- end }}
