@@ -77,6 +77,8 @@ metadata:
     {{- include "beacon.componentLabels" "loki" | nindent 4 }}
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   revisionHistoryLimit: 1
   selector:
     matchLabels:
