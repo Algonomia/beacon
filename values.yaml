@@ -106,6 +106,17 @@ prometheus:
   retention: 15d
   scrapeInterval: 15s
 
+  # Consumer-provided ConfigMaps holding Prometheus rule files, mounted via a
+  # projected volume into /etc/prometheus/alerts (loaded by rule_files: *.yml).
+  # Several consumers can supply rules in one namespace, as long as the data
+  # keys are unique — a projected volume cannot merge two identical keys.
+  rulesConfigMaps: []
+    # - prometheus-alerts-myproject
+
+  # Deprecated: legacy single-ConfigMap gate, equivalent to
+  # rulesConfigMaps: ["prometheus-alerts"]. Ignored when rulesConfigMaps is set.
+  alerts: false
+
   service:
     type: ClusterIP
     port: 9090

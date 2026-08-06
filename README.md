@@ -169,6 +169,16 @@ grafana:
     - grafana-alerting-myproject
 ```
 
+**Prometheus rule ConfigMaps** work the same way — list them under `prometheus.rulesConfigMaps` and they are mounted into `/etc/prometheus/alerts`, where `rule_files: '*.yml'` picks them up:
+
+```yaml
+prometheus:
+  rulesConfigMaps:
+    - prometheus-alerts-myproject
+```
+
+Data keys must be unique across the listed ConfigMaps — a projected volume cannot merge two sources that expose the same key. The older `prometheus.alerts: true` gate still works and is equivalent to `rulesConfigMaps: ["prometheus-alerts"]`, but it allows only one consumer per namespace.
+
 ### Model B: Subchart wrapper (for projects needing helm templating)
 
 If your dashboards need helm template rendering (e.g., parameterized job names), create a wrapper chart with beacon as a dependency:

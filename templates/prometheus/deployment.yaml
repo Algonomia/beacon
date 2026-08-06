@@ -1,4 +1,8 @@
 {{- if .Values.prometheus.enabled }}
+{{- $ruleConfigMaps := .Values.prometheus.rulesConfigMaps | default list }}
+{{- if and (not $ruleConfigMaps) .Values.prometheus.alerts }}
+{{- $ruleConfigMaps = list "prometheus-alerts" }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -38,7 +42,7 @@ spec:
               mountPath: /etc/prometheus
             - name: storage
               mountPath: /prometheus
-            {{- if .Values.prometheus.alerts }}
+            {{- if $ruleConfigMaps }}
             - name: alerts
               mountPath: /etc/prometheus/alerts
             {{- end }}
@@ -51,9 +55,13 @@ spec:
         - name: storage
           persistentVolumeClaim:
             claimName: prometheus-storage
-        {{- if .Values.prometheus.alerts }}
+        {{- if $ruleConfigMaps }}
         - name: alerts
-          configMap:
-            name: prometheus-alerts
+          projected:
+            sources:
+            {{- range $ruleConfigMaps }}
+              - configMap:
+                  name: {{ . }}
+            {{- end }}
         {{- end }}
 {{- end }}
