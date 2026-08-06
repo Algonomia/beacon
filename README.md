@@ -187,6 +187,8 @@ Data keys must be unique across the listed ConfigMaps — a projected volume can
 
 If your dashboards need helm template rendering (e.g., parameterized job names), create a wrapper chart with beacon as a dependency:
 
+Vendor beacon inside your repo — a git submodule is the usual way — and point the dependency at that path:
+
 ```yaml
 # my-observability/Chart.yaml
 apiVersion: v2
@@ -194,9 +196,16 @@ name: my-observability
 version: 1.0.0
 dependencies:
   - name: beacon
-    version: "1.0.0"
-    repository: "file://../../beacon"
+    version: "2.0.0"
+    repository: "file://./beacon"    # a path INSIDE your repo
 ```
+
+```bash
+git submodule add git@github.com:Algonomia/beacon.git my-observability/beacon
+helm dependency update my-observability
+```
+
+A `file://` path that climbs out of the consumer repo (`file://../../../beacon`) resolves only on a machine where both repos happen to sit side by side. It fails in CI at packaging time, not at deploy time, so it breaks the pipeline rather than the cluster. Since beacon is a private repo, CI also needs a deploy key to clone the submodule.
 
 Place consumer ConfigMap templates in `my-observability/templates/`. Nest beacon values under the `beacon:` key in your values.yaml.
 
