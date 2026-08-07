@@ -208,6 +208,19 @@ alloy:
     httpPort: 12345
     lokiPushPort: 3100
 
+  otlp:
+    # OTLP resource attribute -> label, promoted onto the metric series and Loki streams
+    # built from pushed telemetry. Senders set the attributes themselves, usually through
+    # OTEL_RESOURCE_ATTRIBUTES. Traces are untouched: Tempo keeps resource attributes.
+    #
+    # Discovery cannot do this job — pushed telemetry reaches neither Prometheus' pod
+    # discovery nor the Alloy DaemonSet — so mirror `discovery.podLabels` here to have
+    # scraped and pushed telemetry carry the same identity.
+    # Empty (the default) forwards OTLP data exactly as it arrives.
+    resourceLabels: {}
+      # env: env
+      # product: product
+
   logs:
     enabled: true
     resources:

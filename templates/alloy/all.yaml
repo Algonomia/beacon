@@ -29,11 +29,57 @@ data:
       }
 
       output {
+        {{- if .Values.alloy.otlp.resourceLabels }}
+        metrics = [otelcol.processor.transform.identity.input]
+        traces  = [otelcol.exporter.otlp.tempo.input]
+        logs    = [otelcol.processor.transform.identity.input]
+        {{- else }}
         metrics = [otelcol.exporter.prometheus.default.input]
         traces  = [otelcol.exporter.otlp.tempo.input]
         logs    = [otelcol.exporter.loki.default.input]
+        {{- end }}
       }
     }
+
+    {{- if .Values.alloy.otlp.resourceLabels }}
+
+    // Instance identity for pushed telemetry.
+    //
+    // Discovery labels series and log streams from the pod labels Prometheus and the Alloy
+    // DaemonSet see. Telemetry pushed over OTLP never passes through either, so the sender
+    // carries its identity as resource attributes (OTEL_RESOURCE_ATTRIBUTES) and they are
+    // promoted here — onto datapoints for Prometheus, and as Loki label hints for logs.
+    // Traces need nothing: Tempo keeps resource attributes as they are.
+    otelcol.processor.transform "identity" {
+      error_mode = "ignore"
+
+      metric_statements {
+        context = "datapoint"
+        statements = [
+          {{- range $attr, $label := .Values.alloy.otlp.resourceLabels }}
+          `set(attributes["{{ $label }}"], resource.attributes["{{ $attr }}"])`,
+          {{- end }}
+        ]
+      }
+
+      log_statements {
+        context = "resource"
+        statements = [
+          {{- range $attr, $label := .Values.alloy.otlp.resourceLabels }}
+          {{- if ne $attr $label }}
+          `set(attributes["{{ $label }}"], attributes["{{ $attr }}"])`,
+          {{- end }}
+          {{- end }}
+          `set(attributes["loki.resource.labels"], "{{ values .Values.alloy.otlp.resourceLabels | sortAlpha | join "," }}")`,
+        ]
+      }
+
+      output {
+        metrics = [otelcol.exporter.prometheus.default.input]
+        logs    = [otelcol.exporter.loki.default.input]
+      }
+    }
+    {{- end }}
 
     // Loki receiver for Promtail (stdout/stderr logs)
     loki.source.api "promtail" {
@@ -119,7 +165,7 @@ spec:
   template:
     metadata:
       annotations:
-        checksum/config: {{ include "beacon.configChecksum" (list .Values.alloy.service .Values.loki.service.port .Values.prometheus.service.port .Values.tempo.service.otlpGrpcPort) }}
+        checksum/config: {{ include "beacon.configChecksum" (list .Values.alloy.service .Values.alloy.otlp .Values.loki.service.port .Values.prometheus.service.port .Values.tempo.service.otlpGrpcPort) }}
       labels:
         app: alloy
     spec:
