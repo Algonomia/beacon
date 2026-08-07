@@ -339,6 +339,43 @@ grafana:
   # Grafana dashboard folder name (shown in Grafana sidebar)
   dashboardFolder: "Dashboards"
 
+  # Sign in to Grafana with the session the application already issued.
+  #
+  # A small shim answers nginx's auth_request by forwarding the caller's cookie to
+  # `validateUrl` — an endpoint that echoes the current user — and returning the username
+  # in `userHeader`, which Grafana's auth.proxy trusts. The application has already done
+  # the authenticating, so this works the same whether the user signed in with a local
+  # password, OpenID or SAML.
+  #
+  # ⚠️ auth.proxy TRUSTS that header. Anything able to reach Grafana's Service directly can
+  # forge it, so `whitelist` must pin the ingress controller (or a NetworkPolicy must), and
+  # Grafana must not be reachable by any other route.
+  authProxy:
+    enabled: false
+    # e.g. http://back.platform.svc/status/ — must answer 200 + JSON for a valid session
+    validateUrl: ""
+    usernameField: username
+    userHeader: X-WEBAUTH-USER
+    # Where a caller with no session is sent to get one — the application's login page.
+    # Empty means nginx returns 401 instead of redirecting.
+    signinUrl: ""
+    # CIDR(s) allowed to present the header. Empty means Grafana accepts it from anywhere,
+    # which is only safe if a NetworkPolicy already does this job.
+    whitelist: ""
+    # Grafana role given to everyone signing in this way. The shim reports a username, not
+    # a role; anything finer needs the validate endpoint to return one.
+    defaultRole: Viewer
+    image: python:3.12-alpine
+    service:
+      port: 8080
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        cpu: 100m
+        memory: 64Mi
+
   sidecar:
     enabled: true
     image: kiwigrid/k8s-sidecar:1.27.4

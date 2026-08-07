@@ -35,6 +35,23 @@ Access Grafana:
   Password: kubectl get secret -n {{ include "beacon.namespace" . }} grafana-admin -o jsonpath='{.data.admin-password}' | base64 -d
 {{- end }}
 
+{{- if and .Values.grafana.enabled .Values.grafana.authProxy.enabled }}
+{{- if not .Values.grafana.authProxy.whitelist }}
+
+  ############################################################################
+  #  WARNING: grafana.authProxy is on and grafana.authProxy.whitelist is empty.
+  #
+  #  Grafana now signs in whoever the header {{ .Values.grafana.authProxy.userHeader }}
+  #  names, and it is trusting that header from ANY address. Anything that can
+  #  reach the Grafana Service — any pod in this cluster — can set it by hand and
+  #  become any user.
+  #
+  #  Set grafana.authProxy.whitelist to the ingress controller's address range,
+  #  or put a NetworkPolicy in front of Grafana that permits only the ingress.
+  ############################################################################
+{{- end }}
+{{- end }}
+
 Internal endpoints:
   Prometheus:  http://prometheus.{{ include "beacon.namespace" . }}.svc:9090
   Loki:        http://loki.{{ include "beacon.namespace" . }}.svc:3100

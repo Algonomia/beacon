@@ -10,6 +10,16 @@ metadata:
     {{- include "beacon.componentLabels" "grafana" | nindent 4 }}
   annotations:
     {{- toYaml .Values.grafana.ingress.annotations | nindent 4 }}
+    {{- if .Values.grafana.authProxy.enabled }}
+    # Every request is asked about first: the shim resolves the caller's application
+    # session into a username, and only that header is copied onto the request Grafana
+    # sees. A caller with no session is sent to `signinUrl` to get one.
+    nginx.ingress.kubernetes.io/auth-url: "http://grafana-auth-shim.{{ include "beacon.namespace" . }}.svc.cluster.local:{{ .Values.grafana.authProxy.service.port }}/"
+    nginx.ingress.kubernetes.io/auth-response-headers: {{ .Values.grafana.authProxy.userHeader | quote }}
+    {{- with .Values.grafana.authProxy.signinUrl }}
+    nginx.ingress.kubernetes.io/auth-signin: {{ . | quote }}
+    {{- end }}
+    {{- end }}
 spec:
   ingressClassName: {{ .Values.grafana.ingress.className }}
   {{- if .Values.grafana.ingress.tls }}
