@@ -89,6 +89,14 @@ discovery:
   podLabels: {}
   extraRelabelConfigs: ""
 
+  probes:
+    # Discover blackbox probe targets from Services annotated `prometheus.io/probe: "true"`
+    # (see the blackbox-discovered job in templates/prometheus/configmap.yaml for the full
+    # annotation set). Without this, probe targets are the one thing a consumer still cannot
+    # add without an edit to this release, so any alert it writes on `probe_success`
+    # evaluates against an empty series instead of firing. Needs blackboxExporter.enabled.
+    enabled: true
+
 # Prometheus configuration
 prometheus:
   enabled: true
