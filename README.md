@@ -135,6 +135,17 @@ This chart optimises for a private cluster network, not a hostile one. Before ex
 - **Alloy's OTLP and Faro receivers allow all CORS origins** (`["*"]`), so any page can post telemetry if the receiver is reachable.
 - Nothing in the chart provisions NetworkPolicies.
 
+## Log collection: Alloy vs promtail
+
+With `discovery.enabled`, an **Alloy DaemonSet** (`alloy.logs.enabled`, default on) discovers pods
+cluster-wide and tails their container logs, attaching `namespace`, `pod`, `container`, `app` and
+whatever you map in `discovery.podLabels`. Nothing has to be listed in beacon's values, so a new
+application instance needs no change to the beacon release.
+
+`promtail` remains for installs that still enumerate `promtailTargets`, and renders only when that
+list is non-empty — so the two never ship the same logs twice. Note that **promtail reached
+end-of-life in March 2026**; new installs should use discovery.
+
 ## Consumer Integration
 
 Beacon is a pure infrastructure chart. Consumer projects (applications that use beacon for monitoring) provide their own dashboards, alerts, and scrape targets via ConfigMaps. Grafana mounts these ConfigMaps using **projected volumes** driven by the `dashboardConfigMaps` and `alertingConfigMaps` values.

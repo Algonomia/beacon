@@ -196,6 +196,16 @@ alloy:
     httpPort: 12345
     lokiPushPort: 3100
 
+  logs:
+    enabled: true
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 300m
+        memory: 512Mi
+
   ingress:
     enabled: false
     className: nginx
