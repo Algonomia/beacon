@@ -43,13 +43,7 @@ data:
 
     {{- if .Values.alloy.otlp.resourceLabels }}
 
-    // Instance identity for pushed telemetry.
-    //
-    // Discovery labels series and log streams from the pod labels Prometheus and the Alloy
-    // DaemonSet see. Telemetry pushed over OTLP never passes through either, so the sender
-    // carries its identity as resource attributes (OTEL_RESOURCE_ATTRIBUTES) and they are
-    // promoted here — onto datapoints for Prometheus, and as Loki label hints for logs.
-    // Traces need nothing: Tempo keeps resource attributes as they are.
+    // OTLP resource attrs -> labels
     otelcol.processor.transform "identity" {
       error_mode = "ignore"
 

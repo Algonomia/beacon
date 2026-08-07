@@ -93,6 +93,14 @@ data:
         action        = "replace"
       }
       {{- end }}
+      {{- if .Values.alloy.logs.json.labels }}
+      rule {
+        source_labels = ["__meta_kubernetes_pod_annotation_{{ .Values.alloy.logs.formatAnnotation | replace "-" "_" | replace "." "_" | replace "/" "_" }}"]
+        regex         = "(.+)"
+        target_label  = "logs_format"
+        action        = "replace"
+      }
+      {{- end }}
       // /var/log/pods/<ns>_<pod>_<uid>/<container>/*.log
       rule {
         source_labels = ["__meta_kubernetes_pod_uid", "__meta_kubernetes_pod_container_name"]
@@ -114,6 +122,32 @@ data:
 
     loki.process "pod_logs" {
       stage.cri {}
+      {{- if .Values.alloy.logs.json.labels }}
+
+      stage.match {
+        selector = "{logs_format=\"json\"}"
+
+        stage.json {
+          expressions = {
+            {{- range $label, $field := .Values.alloy.logs.json.labels }}
+            {{ $label }} = "{{ $field }}",
+            {{- end }}
+          }
+        }
+
+        stage.labels {
+          values = {
+            {{- range $label, $field := .Values.alloy.logs.json.labels }}
+            {{ $label }} = "",
+            {{- end }}
+          }
+        }
+      }
+
+      stage.label_drop {
+        values = ["logs_format"]
+      }
+      {{- end }}
       forward_to = [loki.write.default.receiver]
     }
 
@@ -138,7 +172,7 @@ spec:
   template:
     metadata:
       annotations:
-        checksum/config: {{ include "beacon.configChecksum" (list .Values.discovery .Values.loki.service.port) }}
+        checksum/config: {{ include "beacon.configChecksum" (list .Values.discovery .Values.alloy.logs .Values.loki.service.port) }}
       labels:
         app: alloy-logs
     spec:

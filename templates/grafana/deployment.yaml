@@ -66,8 +66,6 @@ spec:
           value: username
         - name: GF_AUTH_PROXY_AUTO_SIGN_UP
           value: "true"
-        # Grafana trusts that header only from these addresses. Empty means it trusts
-        # anything that can reach this pod, which is a hole unless a NetworkPolicy closes it.
         - name: GF_AUTH_PROXY_WHITELIST
           value: {{ .Values.grafana.authProxy.whitelist | quote }}
         - name: GF_USERS_AUTO_ASSIGN_ORG_ROLE
@@ -90,11 +88,7 @@ spec:
         - name: alerting
           mountPath: /etc/grafana/provisioning/alerting
         {{- end }}
-        # `storage` must be mounted BEFORE `dashboards`, which nests inside it: mounts
-        # are applied in the order listed, so mounting the parent second masks the child
-        # and Grafana sees an empty dashboards directory while the sidecar, which mounts
-        # only the child, happily writes into it. That mismatch is invisible from
-        # outside the pod — dashboards simply never provision, with nothing in any log.
+        # storage first: it contains dashboards
         - name: storage
           mountPath: /var/lib/grafana
         - name: dashboards
@@ -125,9 +119,7 @@ spec:
             value: {{ .Values.grafana.sidecar.alertingLabel | quote }}
           - name: FOLDER
             value: /etc/grafana/provisioning/alerting
-          # Grafana reads alerting provisioning at startup only, so a ConfigMap
-          # discovered later is written to disk and then ignored until something asks
-          # for a reload. Dashboards need no equivalent: their file provider polls.
+          # alerting is read at startup only
           - name: REQ_URL
             value: http://localhost:{{ .Values.grafana.service.port }}/api/admin/provisioning/alerting/reload
           - name: REQ_METHOD
