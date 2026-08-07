@@ -159,7 +159,7 @@ spec:
   template:
     metadata:
       annotations:
-        checksum/config: {{ include "beacon.configChecksum" (list .Values.alloy.service .Values.alloy.otlp .Values.loki.service.port .Values.prometheus.service.port .Values.tempo.service.otlpGrpcPort) }}
+        checksum/config: {{ include "beacon.configChecksum" (list .Values.alloy .Values.loki.service.port .Values.prometheus.service.port .Values.tempo.service.otlpGrpcPort) }}
       labels:
         app: alloy
     spec:
