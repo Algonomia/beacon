@@ -1,0 +1,152 @@
+{{- if and .Values.grafana.enabled .Values.grafana.authProxy.enabled }}
+{{- $port := int .Values.grafana.authProxy.service.port }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-auth-shim
+  namespace: {{ include "beacon.namespace" . }}
+  labels:
+    {{- include "beacon.labels" . | nindent 4 }}
+    {{- include "beacon.componentLabels" "grafana-auth-shim" | nindent 4 }}
+data:
+  shim.py: |
+    """Answer nginx's auth_request for Grafana by asking the application who the caller is.
+
+    The application has already authenticated the user — by password, OpenID or SAML — and
+    left a session cookie. This forwards that cookie to an endpoint that echoes the current
+    user, and translates the answer into the header Grafana's auth.proxy trusts. Nothing
+    here verifies a credential, so it works the same whichever way the user logged in.
+
+    200 + <user header>  the session is valid
+    401                  no session, expired, or the application refused
+    """
+    import json
+    import os
+    import urllib.error
+    import urllib.request
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+
+    VALIDATE_URL = os.environ["VALIDATE_URL"]
+    USERNAME_FIELD = os.environ.get("USERNAME_FIELD", "username")
+    USER_HEADER = os.environ.get("USER_HEADER", "X-WEBAUTH-USER")
+    TIMEOUT = float(os.environ.get("TIMEOUT_SECONDS", "5"))
+    LISTEN_PORT = int(os.environ.get("LISTEN_PORT", "{{ $port }}"))
+
+
+    def resolve_user(cookie):
+        """Return the username behind this cookie, or None."""
+        if not cookie:
+            return None
+        req = urllib.request.Request(VALIDATE_URL, headers={"Cookie": cookie})
+        try:
+            with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
+                if resp.status != 200:
+                    return None
+                body = json.loads(resp.read().decode("utf-8", "replace"))
+        except (urllib.error.URLError, urllib.error.HTTPError, ValueError, OSError):
+            # Upstream down, refusing, or not answering JSON. Deny rather than guess:
+            # a shim that fails open is a shim that publishes your dashboards.
+            return None
+        user = body.get(USERNAME_FIELD)
+        # An anonymous session still answers 200 on some apps, with an empty username.
+        return user if isinstance(user, str) and user.strip() else None
+
+
+    class Handler(BaseHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"
+
+        def do_GET(self):
+            if self.path == "/healthz":
+                return self._reply(200)
+            user = resolve_user(self.headers.get("Cookie", ""))
+            if user is None:
+                return self._reply(401)
+            self._reply(200, extra={USER_HEADER: user})
+
+        do_POST = do_GET
+
+        def _reply(self, code, extra=None):
+            self.send_response(code)
+            for key, value in (extra or {}).items():
+                self.send_header(key, value)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+        def log_message(self, fmt, *args):
+            # One line per decision, so Loki shows who was let in and who was not.
+            print("auth-shim %s" % (fmt % args), flush=True)
+
+
+    if __name__ == "__main__":
+        HTTPServer(("0.0.0.0", LISTEN_PORT), Handler).serve_forever()
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana-auth-shim
+  namespace: {{ include "beacon.namespace" . }}
+  labels:
+    {{- include "beacon.labels" . | nindent 4 }}
+    {{- include "beacon.componentLabels" "grafana-auth-shim" | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana-auth-shim
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include "beacon.configChecksum" (list .Values.grafana.authProxy) }}
+      labels:
+        app: grafana-auth-shim
+    spec:
+      containers:
+        - name: shim
+          image: {{ .Values.grafana.authProxy.image }}
+          command: ["python3", "/app/shim.py"]
+          env:
+            - name: VALIDATE_URL
+              value: {{ required "grafana.authProxy.validateUrl is required when authProxy is enabled" .Values.grafana.authProxy.validateUrl | quote }}
+            - name: USERNAME_FIELD
+              value: {{ .Values.grafana.authProxy.usernameField | quote }}
+            - name: USER_HEADER
+              value: {{ .Values.grafana.authProxy.userHeader | quote }}
+            - name: LISTEN_PORT
+              value: {{ $port | quote }}
+          ports:
+            - containerPort: {{ $port }}
+              name: http
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 10
+          volumeMounts:
+            - name: shim
+              mountPath: /app
+          resources:
+            {{- toYaml .Values.grafana.authProxy.resources | nindent 12 }}
+      volumes:
+        - name: shim
+          configMap:
+            name: grafana-auth-shim
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana-auth-shim
+  namespace: {{ include "beacon.namespace" . }}
+  labels:
+    {{- include "beacon.labels" . | nindent 4 }}
+    {{- include "beacon.componentLabels" "grafana-auth-shim" | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    app: grafana-auth-shim
+  ports:
+    - port: {{ $port }}
+      targetPort: http
+      name: http
+{{- end }}

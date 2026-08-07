@@ -57,6 +57,22 @@ spec:
           value: {{ .Values.grafana.defaultTheme | quote }}
         - name: GF_AUTH_ANONYMOUS_ENABLED
           value: {{ .Values.grafana.anonymousEnabled | quote }}
+        {{- if .Values.grafana.authProxy.enabled }}
+        - name: GF_AUTH_PROXY_ENABLED
+          value: "true"
+        - name: GF_AUTH_PROXY_HEADER_NAME
+          value: {{ .Values.grafana.authProxy.userHeader | quote }}
+        - name: GF_AUTH_PROXY_HEADER_PROPERTY
+          value: username
+        - name: GF_AUTH_PROXY_AUTO_SIGN_UP
+          value: "true"
+        # Grafana trusts that header only from these addresses. Empty means it trusts
+        # anything that can reach this pod, which is a hole unless a NetworkPolicy closes it.
+        - name: GF_AUTH_PROXY_WHITELIST
+          value: {{ .Values.grafana.authProxy.whitelist | quote }}
+        - name: GF_USERS_AUTO_ASSIGN_ORG_ROLE
+          value: {{ .Values.grafana.authProxy.defaultRole | quote }}
+        {{- end }}
         readinessProbe:
           httpGet:
             path: /api/health
