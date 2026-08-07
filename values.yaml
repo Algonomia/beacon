@@ -220,6 +220,13 @@ alloy:
 
   logs:
     enabled: true
+    # pods declare their format: beacon.algonomia.com/logs: json
+    formatAnnotation: beacon.algonomia.com/logs
+    json:
+      # JSON field -> Loki label. Never map a free-text field; the cardinality is unbounded.
+      labels:
+        level: level
+        type: type
     resources:
       requests:
         cpu: 50m
