@@ -26,6 +26,9 @@ spec:
       labels:
         app: prometheus
     spec:
+      {{- if .Values.discovery.enabled }}
+      serviceAccountName: prometheus
+      {{- end }}
       containers:
         - name: prometheus
           image: {{ .Values.prometheus.image.repository }}:{{ .Values.prometheus.image.tag }}

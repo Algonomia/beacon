@@ -83,6 +83,12 @@ ingressMonitoring:
   enabled: false
   target: ingress-nginx-controller-metrics.ingress-nginx.svc:10254
 
+discovery:
+  enabled: false
+  namespaces: []
+  podLabels: {}
+  extraRelabelConfigs: ""
+
 # Prometheus configuration
 prometheus:
   enabled: true
