@@ -328,10 +328,10 @@ grafana:
   # Grafana dashboard folder name (shown in Grafana sidebar)
   dashboardFolder: "Dashboards"
 
-  # sign in with the app session; whitelist or it is forgeable
+  # app session -> Grafana login
   authProxy:
     enabled: false
-    # endpoint echoing the current user
+    # endpoint echoing current user
     validateUrl: ""
     usernameField: username
     userHeader: X-WEBAUTH-USER
