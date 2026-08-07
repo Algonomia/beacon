@@ -1,0 +1,38 @@
+{{- if and .Values.grafana.enabled .Values.discovery.enabled .Values.grafana.sidecar.enabled }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: grafana
+  namespace: {{ include "beacon.namespace" . }}
+  labels:
+    {{- include "beacon.labels" . | nindent 4 }}
+    {{- include "beacon.componentLabels" "grafana" | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "beacon.namespace" . }}-grafana-sidecar
+  labels:
+    {{- include "beacon.labels" . | nindent 4 }}
+    {{- include "beacon.componentLabels" "grafana" | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps", "secrets"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "beacon.namespace" . }}-grafana-sidecar
+  labels:
+    {{- include "beacon.labels" . | nindent 4 }}
+    {{- include "beacon.componentLabels" "grafana" | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "beacon.namespace" . }}-grafana-sidecar
+subjects:
+  - kind: ServiceAccount
+    name: grafana
+    namespace: {{ include "beacon.namespace" . }}
+{{- end }}

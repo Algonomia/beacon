@@ -26,6 +26,9 @@ spec:
       labels:
         app: prometheus
     spec:
+      {{- if .Values.discovery.enabled }}
+      serviceAccountName: prometheus
+      {{- end }}
       containers:
         - name: prometheus
           image: {{ .Values.prometheus.image.repository }}:{{ .Values.prometheus.image.tag }}
@@ -46,12 +49,36 @@ spec:
               mountPath: /etc/prometheus
             - name: storage
               mountPath: /prometheus
-            {{- if $ruleConfigMaps }}
+            {{- if or $ruleConfigMaps (and .Values.discovery.enabled .Values.prometheus.sidecar.enabled) }}
             - name: alerts
               mountPath: /etc/prometheus/alerts
             {{- end }}
           resources:
             {{- toYaml .Values.prometheus.resources | nindent 12 }}
+        {{- if and .Values.discovery.enabled .Values.prometheus.sidecar.enabled }}
+        - name: sidecar-rules
+          image: {{ .Values.prometheus.sidecar.image }}
+          env:
+            - name: LABEL
+              value: {{ .Values.prometheus.sidecar.rulesLabel | quote }}
+            - name: FOLDER
+              value: /etc/prometheus/alerts
+            - name: RESOURCE
+              value: configmap
+            - name: METHOD
+              value: WATCH
+            - name: NAMESPACE
+              value: {{ .Values.discovery.namespaces | default (list) | join "," | default "ALL" | quote }}
+            - name: REQ_URL
+              value: http://localhost:9090/-/reload
+            - name: REQ_METHOD
+              value: POST
+          resources:
+            {{- toYaml .Values.prometheus.sidecar.resources | nindent 12 }}
+          volumeMounts:
+            - name: alerts
+              mountPath: /etc/prometheus/alerts
+        {{- end }}
       volumes:
         - name: config
           configMap:
@@ -59,7 +86,10 @@ spec:
         - name: storage
           persistentVolumeClaim:
             claimName: prometheus-storage
-        {{- if $ruleConfigMaps }}
+        {{- if and .Values.discovery.enabled .Values.prometheus.sidecar.enabled }}
+        - name: alerts
+          emptyDir: {}
+        {{- else if $ruleConfigMaps }}
         - name: alerts
           projected:
             sources:

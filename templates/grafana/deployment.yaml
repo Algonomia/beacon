@@ -24,6 +24,9 @@ spec:
       labels:
         app: grafana
     spec:
+      {{- if and .Values.discovery.enabled .Values.grafana.sidecar.enabled }}
+      serviceAccountName: grafana
+      {{- end }}
       {{- with .Values.grafana.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
@@ -69,12 +72,50 @@ spec:
           mountPath: /etc/grafana/provisioning/dashboards
         - name: dashboards
           mountPath: /var/lib/grafana/dashboards
-        {{- if .Values.grafana.alertingConfigMaps }}
+        {{- if or .Values.grafana.alertingConfigMaps (and .Values.discovery.enabled .Values.grafana.sidecar.enabled) }}
         - name: alerting
           mountPath: /etc/grafana/provisioning/alerting
         {{- end }}
         - name: storage
           mountPath: /var/lib/grafana
+      {{- if and .Values.discovery.enabled .Values.grafana.sidecar.enabled }}
+      - name: sidecar-dashboards
+        image: {{ .Values.grafana.sidecar.image }}
+        env:
+          - name: LABEL
+            value: {{ .Values.grafana.sidecar.dashboardLabel | quote }}
+          - name: FOLDER
+            value: /var/lib/grafana/dashboards
+          - name: RESOURCE
+            value: configmap
+          - name: METHOD
+            value: WATCH
+          - name: NAMESPACE
+            value: {{ .Values.discovery.namespaces | default (list) | join "," | default "ALL" | quote }}
+        resources:
+          {{- toYaml .Values.grafana.sidecar.resources | nindent 10 }}
+        volumeMounts:
+          - name: dashboards
+            mountPath: /var/lib/grafana/dashboards
+      - name: sidecar-alerting
+        image: {{ .Values.grafana.sidecar.image }}
+        env:
+          - name: LABEL
+            value: {{ .Values.grafana.sidecar.alertingLabel | quote }}
+          - name: FOLDER
+            value: /etc/grafana/provisioning/alerting
+          - name: RESOURCE
+            value: configmap
+          - name: METHOD
+            value: WATCH
+          - name: NAMESPACE
+            value: {{ .Values.discovery.namespaces | default (list) | join "," | default "ALL" | quote }}
+        resources:
+          {{- toYaml .Values.grafana.sidecar.resources | nindent 10 }}
+        volumeMounts:
+          - name: alerting
+            mountPath: /etc/grafana/provisioning/alerting
+      {{- end }}
       volumes:
       - name: datasources
         configMap:
@@ -82,6 +123,12 @@ spec:
       - name: dashboard-provider
         configMap:
           name: grafana-dashboard-provider
+      {{- if and .Values.discovery.enabled .Values.grafana.sidecar.enabled }}
+      - name: dashboards
+        emptyDir: {}
+      - name: alerting
+        emptyDir: {}
+      {{- else }}
       - name: dashboards
         projected:
           sources:
@@ -103,6 +150,7 @@ spec:
                 name: {{ . }}
                 optional: true
           {{- end }}
+      {{- end }}
       {{- end }}
       - name: storage
         persistentVolumeClaim:

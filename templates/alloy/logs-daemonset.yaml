@@ -1,0 +1,182 @@
+{{- if and .Values.alloy.enabled .Values.discovery.enabled .Values.alloy.logs.enabled }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: alloy-logs
+  namespace: {{ include "beacon.namespace" . }}
+  labels:
+    {{- include "beacon.labels" . | nindent 4 }}
+    {{- include "beacon.componentLabels" "alloy-logs" | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "beacon.namespace" . }}-alloy-logs
+  labels:
+    {{- include "beacon.labels" . | nindent 4 }}
+    {{- include "beacon.componentLabels" "alloy-logs" | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["nodes", "nodes/proxy", "services", "endpoints", "pods"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "beacon.namespace" . }}-alloy-logs
+  labels:
+    {{- include "beacon.labels" . | nindent 4 }}
+    {{- include "beacon.componentLabels" "alloy-logs" | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "beacon.namespace" . }}-alloy-logs
+subjects:
+  - kind: ServiceAccount
+    name: alloy-logs
+    namespace: {{ include "beacon.namespace" . }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alloy-logs-config
+  namespace: {{ include "beacon.namespace" . }}
+  labels:
+    {{- include "beacon.labels" . | nindent 4 }}
+    {{- include "beacon.componentLabels" "alloy-logs" | nindent 4 }}
+data:
+  config.alloy: |
+    // Pod log collection. Runs as a DaemonSet: each instance tails only the
+    // containers scheduled on its own node.
+
+    discovery.kubernetes "pods" {
+      role = "pod"
+      {{- with .Values.discovery.namespaces }}
+      namespaces {
+        names = [{{ range $i, $n := . }}{{ if $i }}, {{ end }}"{{ $n }}"{{ end }}]
+      }
+      {{- end }}
+    }
+
+    discovery.relabel "pod_logs" {
+      targets = discovery.kubernetes.pods.targets
+
+      rule {
+        source_labels = ["__meta_kubernetes_pod_node_name"]
+        regex         = sys.env("NODE_NAME")
+        action        = "keep"
+      }
+      rule {
+        source_labels = ["__meta_kubernetes_namespace"]
+        target_label  = "namespace"
+      }
+      rule {
+        source_labels = ["__meta_kubernetes_pod_name"]
+        target_label  = "pod"
+      }
+      rule {
+        source_labels = ["__meta_kubernetes_pod_container_name"]
+        target_label  = "container"
+      }
+      rule {
+        source_labels = ["__meta_kubernetes_pod_label_app"]
+        regex         = "(.+)"
+        target_label  = "app"
+        action        = "replace"
+      }
+      {{- range $target, $src := .Values.discovery.podLabels }}
+      rule {
+        source_labels = ["__meta_kubernetes_pod_label_{{ $src | replace "-" "_" | replace "." "_" | replace "/" "_" }}"]
+        regex         = "(.+)"
+        target_label  = "{{ $target }}"
+        action        = "replace"
+      }
+      {{- end }}
+      // /var/log/pods/<ns>_<pod>_<uid>/<container>/*.log
+      rule {
+        source_labels = ["__meta_kubernetes_pod_uid", "__meta_kubernetes_pod_container_name"]
+        separator     = "/"
+        replacement   = "/var/log/pods/*$1/*.log"
+        target_label  = "__path__"
+        action        = "replace"
+      }
+    }
+
+    local.file_match "pod_logs" {
+      path_targets = discovery.relabel.pod_logs.output
+    }
+
+    loki.source.file "pod_logs" {
+      targets    = local.file_match.pod_logs.targets
+      forward_to = [loki.process.pod_logs.receiver]
+    }
+
+    loki.process "pod_logs" {
+      stage.cri {}
+      forward_to = [loki.write.default.receiver]
+    }
+
+    loki.write "default" {
+      endpoint {
+        url = "http://loki:{{ .Values.loki.service.port }}/loki/api/v1/push"
+      }
+    }
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: alloy-logs
+  namespace: {{ include "beacon.namespace" . }}
+  labels:
+    {{- include "beacon.labels" . | nindent 4 }}
+    {{- include "beacon.componentLabels" "alloy-logs" | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app: alloy-logs
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include "beacon.configChecksum" (list .Values.discovery .Values.loki.service.port) }}
+      labels:
+        app: alloy-logs
+    spec:
+      serviceAccountName: alloy-logs
+      containers:
+        - name: alloy
+          image: {{ .Values.alloy.image.repository }}:{{ .Values.alloy.image.tag }}
+          imagePullPolicy: {{ .Values.alloy.image.pullPolicy }}
+          args:
+            - run
+            - /etc/alloy/config.alloy
+            - --storage.path=/var/lib/alloy/data
+            - --server.http.listen-addr=0.0.0.0:{{ .Values.alloy.service.httpPort }}
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          ports:
+            - containerPort: {{ .Values.alloy.service.httpPort }}
+              name: http
+          volumeMounts:
+            - name: config
+              mountPath: /etc/alloy
+            - name: data
+              mountPath: /var/lib/alloy/data
+            - name: pods
+              mountPath: /var/log/pods
+              readOnly: true
+          resources:
+            {{- toYaml .Values.alloy.logs.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: alloy-logs-config
+        - name: data
+          emptyDir: {}
+        - name: pods
+          hostPath:
+            path: /var/log/pods
+{{- end }}
