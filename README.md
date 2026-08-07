@@ -14,6 +14,14 @@ A comprehensive, production-ready observability stack for Kubernetes.
 
 ## Installation
 
+The chart is published as a Helm repository:
+
+```bash
+helm repo add beacon https://algonomia.github.io/beacon
+helm repo update
+helm install observability beacon/beacon --namespace observability --create-namespace
+```
+
 ### Prerequisites
 
 - Kubernetes 1.20+
@@ -205,12 +213,12 @@ name: my-observability
 version: 1.0.0
 dependencies:
   - name: beacon
-    version: "2.0.0"
+    version: "2.2.0"
     repository: "file://./beacon"    # a path INSIDE your repo
 ```
 
 ```bash
-git submodule add https://github.com/tcd0217/beacon.git my-observability/beacon
+git submodule add https://github.com/Algonomia/beacon.git my-observability/beacon
 helm dependency update my-observability
 ```
 

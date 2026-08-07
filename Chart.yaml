@@ -19,7 +19,7 @@ keywords:
   - helm
   - telemetry
 maintainers:
-  - name: tcd0217
-home: https://github.com/tcd0217/beacon
+  - name: Algonomia
+home: https://github.com/Algonomia/beacon
 sources:
-  - https://github.com/tcd0217/beacon
+  - https://github.com/Algonomia/beacon
