@@ -109,6 +109,23 @@ spec:
             value: {{ .Values.grafana.sidecar.alertingLabel | quote }}
           - name: FOLDER
             value: /etc/grafana/provisioning/alerting
+          # Grafana reads alerting provisioning at startup only, so a ConfigMap
+          # discovered later is written to disk and then ignored until something asks
+          # for a reload. Dashboards need no equivalent: their file provider polls.
+          - name: REQ_URL
+            value: http://localhost:{{ .Values.grafana.service.port }}/api/admin/provisioning/alerting/reload
+          - name: REQ_METHOD
+            value: POST
+          - name: REQ_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: grafana-admin
+                key: admin-user
+          - name: REQ_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: grafana-admin
+                key: admin-password
           - name: RESOURCE
             value: configmap
           - name: METHOD
