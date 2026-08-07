@@ -23,6 +23,7 @@ rules:
       - services
       - endpoints
       - pods
+      - configmaps
     verbs: ["get", "list", "watch"]
   - nonResourceURLs: ["/metrics", "/metrics/cadvisor"]
     verbs: ["get"]

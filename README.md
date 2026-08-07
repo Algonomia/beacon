@@ -135,6 +135,39 @@ This chart optimises for a private cluster network, not a hostile one. Before ex
 - **Alloy's OTLP and Faro receivers allow all CORS origins** (`["*"]`), so any page can post telemetry if the receiver is reachable.
 - Nothing in the chart provisions NetworkPolicies.
 
+## Discovery mode (recommended for shared clusters)
+
+By default beacon *enumerates*: every consumer ConfigMap is listed in beacon's values, so adding an
+application instance means upgrading the beacon release. With `discovery.enabled: true` beacon
+*discovers* instead, and one beacon per cluster serves every namespace:
+
+```yaml
+discovery:
+  enabled: true
+  namespaces: []          # empty = all namespaces
+  podLabels:              # pod label -> series/stream label
+    env: env
+    product: product
+```
+
+A consuming application then owns its own telemetry, entirely within its own namespace:
+
+| what | how |
+|---|---|
+| **metrics** | annotate the pod `prometheus.io/scrape: "true"` (and `prometheus.io/port`) |
+| **logs** | nothing — the Alloy DaemonSet tails every pod it discovers |
+| **env / product labels** | set them as **pod labels**; `discovery.podLabels` maps them onto metrics and log streams |
+| **dashboards** | a ConfigMap labelled `grafana_dashboard: "1"`, in any namespace |
+| **Grafana alerts** | a ConfigMap labelled `grafana_alerting: "1"` |
+| **Prometheus rules** | a ConfigMap labelled `prometheus_rules: "1"` (Prometheus is reloaded automatically) |
+
+Nothing above requires a change to the beacon release, so per-instance pipelines can deploy
+independently of whoever owns the cluster's observability stack. Two instances on one cluster
+(`prod` and `preprod`) are separated by their `env` pod label, which reaches both metrics and logs.
+
+Label keys are configurable via `grafana.sidecar.dashboardLabel`, `grafana.sidecar.alertingLabel`
+and `prometheus.sidecar.rulesLabel`.
+
 ## Log collection: Alloy vs promtail
 
 With `discovery.enabled`, an **Alloy DaemonSet** (`alloy.logs.enabled`, default on) discovers pods
