@@ -2,8 +2,8 @@ apiVersion: v2
 name: beacon
 description: Production-ready observability stack with Prometheus, Loki, Tempo, Grafana, Alloy, and Promtail
 type: application
-version: 2.4.0
-appVersion: "2.4"
+version: 2.5.0
+appVersion: "2.5"
 keywords:
   - observability
   - monitoring
