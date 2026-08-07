@@ -1,0 +1,79 @@
+name: publish-chart
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-chart
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout chart
+        uses: actions/checkout@v4
+        with:
+          path: src
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+
+      - name: Lint
+        run: helm lint src
+
+      - name: Check tag matches Chart.yaml version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          tag="${GITHUB_REF#refs/tags/v}"
+          chart="$(grep '^version:' src/Chart.yaml | awk '{print $2}')"
+          if [ "$tag" != "$chart" ]; then
+            echo "tag v$tag does not match Chart.yaml version $chart" >&2
+            exit 1
+          fi
+
+      - name: Checkout gh-pages if it exists
+        uses: actions/checkout@v4
+        continue-on-error: true
+        with:
+          ref: gh-pages
+          path: pages
+
+      - name: Package and index
+        run: |
+          set -euo pipefail
+          mkdir -p pages
+          cd pages
+          # a failed gh-pages checkout can leave a .git behind on some other branch,
+          # so always force the branch rather than relying on `git init -b`
+          [ -d .git ] || git init -q
+          git checkout -qB gh-pages
+          helm package ../src -d .
+          url="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
+          if [ -f index.yaml ]; then
+            helm repo index . --url "$url" --merge index.yaml   # keeps previously published versions
+          else
+            helm repo index . --url "$url"
+          fi
+
+      - name: Publish
+        run: |
+          set -euo pipefail
+          cd pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote remove origin 2>/dev/null || true
+          git remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "nothing to publish"
+            exit 0
+          fi
+          git commit -q -m "publish ${GITHUB_REF_NAME}"
+          git push -u origin gh-pages
