@@ -1,4 +1,19 @@
 {{- if .Values.loki.enabled }}
+{{- if and .Values.loki.objectStore.enabled (not .Values.loki.objectStore.existingSecret) }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: loki-objectstore
+  namespace: {{ include "beacon.namespace" . }}
+  labels:
+    {{- include "beacon.labels" . | nindent 4 }}
+    {{- include "beacon.componentLabels" "loki" | nindent 4 }}
+type: Opaque
+data:
+  {{ .Values.loki.objectStore.secretKeys.accessKeyId }}: {{ required "loki.objectStore.accessKeyId is required unless existingSecret is set" .Values.loki.objectStore.accessKeyId | b64enc }}
+  {{ .Values.loki.objectStore.secretKeys.secretAccessKey }}: {{ required "loki.objectStore.secretAccessKey is required unless existingSecret is set" .Values.loki.objectStore.secretAccessKey | b64enc }}
+{{- end }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -18,14 +33,30 @@ data:
 
     common:
       path_prefix: /loki
+      {{- if not .Values.loki.objectStore.enabled }}
       storage:
         filesystem:
           chunks_directory: /loki/chunks
           rules_directory: /loki/rules
+      {{- end }}
       replication_factor: 1
       ring:
         kvstore:
           store: inmemory
+
+    {{- if .Values.loki.objectStore.enabled }}
+    storage_config:
+      filesystem:
+        directory: /loki/chunks
+      aws:
+        endpoint: {{ required "loki.objectStore.endpoint is required" .Values.loki.objectStore.endpoint | quote }}
+        region: {{ .Values.loki.objectStore.region | quote }}
+        bucketnames: {{ required "loki.objectStore.bucket is required" .Values.loki.objectStore.bucket | quote }}
+        access_key_id: ${LOKI_S3_ACCESS_KEY_ID}
+        secret_access_key: ${LOKI_S3_SECRET_ACCESS_KEY}
+        s3forcepathstyle: {{ .Values.loki.objectStore.forcePathStyle }}
+        insecure: {{ .Values.loki.objectStore.insecure }}
+    {{- end }}
 
     schema_config:
       configs:
@@ -36,9 +67,24 @@ data:
           index:
             prefix: index_
             period: 24h
+        {{- if .Values.loki.objectStore.enabled }}
+        # a new period, never a flip: the index still resolves old chunk refs to the
+        # filesystem, and asking S3 for them fails the whole query with a 500
+        - from: {{ required "loki.objectStore.from is required: a FUTURE 00:00 UTC date" .Values.loki.objectStore.from }}
+          store: tsdb
+          object_store: s3
+          schema: v13
+          index:
+            prefix: index_
+            period: 24h
+        {{- end }}
 
     limits_config:
       retention_period: {{ .Values.loki.retention }}
+      {{- with .Values.loki.retentionStreams }}
+      retention_stream:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       ingestion_rate_mb: 4
       ingestion_burst_size_mb: 6
 
@@ -47,7 +93,7 @@ data:
       retention_enabled: true
       retention_delete_delay: 2h
       compaction_interval: 10m
-      delete_request_store: filesystem
+      delete_request_store: {{ if .Values.loki.objectStore.enabled }}s3{{ else }}filesystem{{ end }}
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -96,6 +142,22 @@ spec:
           imagePullPolicy: {{ .Values.loki.image.pullPolicy }}
           args:
             - -config.file=/etc/loki/loki.yaml
+            {{- if .Values.loki.objectStore.enabled }}
+            - -config.expand-env=true
+            {{- end }}
+          {{- if .Values.loki.objectStore.enabled }}
+          env:
+            - name: LOKI_S3_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.loki.objectStore.existingSecret | default "loki-objectstore" }}
+                  key: {{ .Values.loki.objectStore.secretKeys.accessKeyId }}
+            - name: LOKI_S3_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.loki.objectStore.existingSecret | default "loki-objectstore" }}
+                  key: {{ .Values.loki.objectStore.secretKeys.secretAccessKey }}
+          {{- end }}
           ports:
             - name: http
               containerPort: {{ .Values.loki.service.port }}

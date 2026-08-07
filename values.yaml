@@ -157,6 +157,29 @@ loki:
     storageClassName: ""
 
   retention: 168h  # 7 days
+  # highest-priority match wins; unmatched streams fall back to `retention`.
+  # the selector must use an indexed stream label (env, product, namespace...)
+  retentionStreams: []
+    # - selector: '{env="preprod"}'
+    #   priority: 1
+    #   period: 168h
+
+  objectStore:
+    enabled: false
+    bucket: ""
+    endpoint: ""          # host only, no scheme
+    region: ""
+    # a FUTURE 00:00 UTC date. Existing chunks stay on the filesystem and keep being
+    # served; only data after this boundary goes to the bucket.
+    from: ""
+    forcePathStyle: false
+    insecure: false
+    existingSecret: ""
+    secretKeys:
+      accessKeyId: access-key-id
+      secretAccessKey: secret-access-key
+    accessKeyId: ""
+    secretAccessKey: ""
 
   service:
     type: ClusterIP
