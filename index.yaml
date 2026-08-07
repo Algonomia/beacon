@@ -2,8 +2,38 @@ apiVersion: v1
 entries:
   beacon:
   - apiVersion: v2
+    appVersion: "2.8"
+    created: "2026-08-07T20:10:38.367370633Z"
+    description: Production-ready observability stack with Prometheus, Loki, Tempo,
+      Grafana, Alloy, and Promtail
+    digest: e16b4c0c5706b5bf46b4895c0ef8054eb6a9b7f7fc728815a73c970f563cb38f
+    home: https://github.com/Algonomia/beacon
+    keywords:
+    - observability
+    - monitoring
+    - logging
+    - tracing
+    - prometheus
+    - loki
+    - tempo
+    - grafana
+    - alloy
+    - promtail
+    - kubernetes
+    - helm
+    - telemetry
+    maintainers:
+    - name: Algonomia
+    name: beacon
+    sources:
+    - https://github.com/Algonomia/beacon
+    type: application
+    urls:
+    - https://Algonomia.github.io/beacon/beacon-2.8.0.tgz
+    version: 2.8.0
+  - apiVersion: v2
     appVersion: "2.7"
-    created: "2026-08-07T18:51:09.241774096Z"
+    created: "2026-08-07T20:10:38.365735099Z"
     description: Production-ready observability stack with Prometheus, Loki, Tempo,
       Grafana, Alloy, and Promtail
     digest: d3d0a719c67e14ff83a0b694911fa117a893c58a16c004dcdf524d073db02245
@@ -33,7 +63,7 @@ entries:
     version: 2.7.0
   - apiVersion: v2
     appVersion: "2.6"
-    created: "2026-08-07T18:51:09.240052967Z"
+    created: "2026-08-07T20:10:38.363203101Z"
     description: Production-ready observability stack with Prometheus, Loki, Tempo,
       Grafana, Alloy, and Promtail
     digest: 1e812d04de17b4e855f217e0411695f02d1d465d40c01451fe52c19a8a9b4cb9
@@ -63,7 +93,7 @@ entries:
     version: 2.6.0
   - apiVersion: v2
     appVersion: "2.5"
-    created: "2026-08-07T18:51:09.238480169Z"
+    created: "2026-08-07T20:10:38.361678212Z"
     description: Production-ready observability stack with Prometheus, Loki, Tempo,
       Grafana, Alloy, and Promtail
     digest: 6e9212a1a82ec1b8cb8be9252f6aa5684d46e5f6a0bb97569041497d4c8a082c
@@ -93,7 +123,7 @@ entries:
     version: 2.5.0
   - apiVersion: v2
     appVersion: "2.4"
-    created: "2026-08-07T18:51:09.235876644Z"
+    created: "2026-08-07T20:10:38.360188236Z"
     description: Production-ready observability stack with Prometheus, Loki, Tempo,
       Grafana, Alloy, and Promtail
     digest: e6fe097a114bbe6acec3707492abc226252bfc0b71fe6b9e406dcfca9d62f8a9
@@ -123,7 +153,7 @@ entries:
     version: 2.4.0
   - apiVersion: v2
     appVersion: "2.3"
-    created: "2026-08-07T18:51:09.234281422Z"
+    created: "2026-08-07T20:10:38.358603188Z"
     description: Production-ready observability stack with Prometheus, Loki, Tempo,
       Grafana, Alloy, and Promtail
     digest: 659cebfe1b33c51f812fe29dbdc8ee371e05973b409e48a6fdc6bb1f01a0622c
@@ -153,7 +183,7 @@ entries:
     version: 2.3.0
   - apiVersion: v2
     appVersion: "2.2"
-    created: "2026-08-07T18:51:09.232734853Z"
+    created: "2026-08-07T20:10:38.356310187Z"
     description: Production-ready observability stack with Prometheus, Loki, Tempo,
       Grafana, Alloy, and Promtail
     digest: 4982f739734104b5ac2268426664e6fe5d55d390bcc4e9c2c805ee2e49abd72c
@@ -181,4 +211,4 @@ entries:
     urls:
     - https://Algonomia.github.io/beacon/beacon-2.2.0.tgz
     version: 2.2.0
-generated: "2026-08-07T18:51:09.231199771Z"
+generated: "2026-08-07T20:10:38.354755048Z"
