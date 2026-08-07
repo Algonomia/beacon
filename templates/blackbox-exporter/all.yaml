@@ -1,0 +1,77 @@
+{{- if .Values.blackboxExporter.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: blackbox-exporter-config
+  namespace: {{ include "beacon.namespace" . }}
+  labels:
+    {{- include "beacon.labels" . | nindent 4 }}
+    {{- include "beacon.componentLabels" "blackbox-exporter" | nindent 4 }}
+data:
+  blackbox.yml: |
+    modules:
+      http_2xx:
+        prober: http
+        timeout: 5s
+        http:
+          valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
+          valid_status_codes: [200]
+          method: GET
+          preferred_ip_protocol: "ip4"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: blackbox-exporter
+  namespace: {{ include "beacon.namespace" . }}
+  labels:
+    {{- include "beacon.labels" . | nindent 4 }}
+    {{- include "beacon.componentLabels" "blackbox-exporter" | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: blackbox-exporter
+  template:
+    metadata:
+      labels:
+        app: blackbox-exporter
+    spec:
+      containers:
+      - name: blackbox-exporter
+        image: {{ .Values.blackboxExporter.image.repository }}:{{ .Values.blackboxExporter.image.tag }}
+        imagePullPolicy: {{ .Values.blackboxExporter.image.pullPolicy }}
+        args:
+          - '--config.file=/config/blackbox.yml'
+        ports:
+        - containerPort: {{ .Values.blackboxExporter.service.port }}
+          name: http
+        volumeMounts:
+        - name: config
+          mountPath: /config
+        resources:
+          {{- toYaml .Values.blackboxExporter.resources | nindent 10 }}
+      volumes:
+      - name: config
+        configMap:
+          name: blackbox-exporter-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: blackbox-exporter
+  namespace: {{ include "beacon.namespace" . }}
+  labels:
+    {{- include "beacon.labels" . | nindent 4 }}
+    {{- include "beacon.componentLabels" "blackbox-exporter" | nindent 4 }}
+spec:
+  type: {{ .Values.blackboxExporter.service.type }}
+  ports:
+    - port: {{ .Values.blackboxExporter.service.port }}
+      targetPort: http
+      name: http
+      protocol: TCP
+  selector:
+    app: blackbox-exporter
+{{- end }}

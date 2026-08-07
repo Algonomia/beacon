@@ -1,0 +1,34 @@
+{{- if and .Values.alloy.enabled .Values.alloy.ingress.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: alloy-faro-ingress
+  namespace: {{ include "beacon.namespace" . }}
+  labels:
+    {{- include "beacon.labels" . | nindent 4 }}
+    {{- include "beacon.componentLabels" "alloy" | nindent 4 }}
+  {{- with .Values.alloy.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  ingressClassName: {{ .Values.alloy.ingress.className }}
+  {{- if .Values.alloy.ingress.tls }}
+  tls:
+    - hosts:
+        - {{ .Values.alloy.ingress.host }}
+      secretName: {{ .Values.alloy.ingress.tls.secretName }}
+  {{- end }}
+  rules:
+  - host: {{ .Values.alloy.ingress.host }}
+    http:
+      paths:
+      - path: {{ .Values.alloy.ingress.path }}
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: alloy
+            port:
+              number: {{ .Values.alloy.service.faroPort }}
+{{- end }}

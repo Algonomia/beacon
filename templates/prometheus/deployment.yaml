@@ -1,0 +1,72 @@
+{{- if .Values.prometheus.enabled }}
+{{- $ruleConfigMaps := .Values.prometheus.rulesConfigMaps | default list }}
+{{- if and (not $ruleConfigMaps) .Values.prometheus.alerts }}
+{{- $ruleConfigMaps = list "prometheus-alerts" }}
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  namespace: {{ include "beacon.namespace" . }}
+  labels:
+    {{- include "beacon.labels" . | nindent 4 }}
+    {{- include "beacon.componentLabels" "prometheus" | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/prometheus/configmap.yaml") . | sha256sum }}
+      labels:
+        app: prometheus
+    spec:
+      containers:
+        - name: prometheus
+          image: {{ .Values.prometheus.image.repository }}:{{ .Values.prometheus.image.tag }}
+          imagePullPolicy: {{ .Values.prometheus.image.pullPolicy }}
+          args:
+            - '--config.file=/etc/prometheus/prometheus.yml'
+            - '--storage.tsdb.path=/prometheus'
+            - '--storage.tsdb.retention.time={{ .Values.prometheus.retention }}'
+            - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+            - '--web.console.templates=/usr/share/prometheus/consoles'
+            - '--web.enable-remote-write-receiver'
+            - '--web.enable-lifecycle'
+          ports:
+            - name: http
+              containerPort: 9090
+          volumeMounts:
+            - name: config
+              mountPath: /etc/prometheus
+            - name: storage
+              mountPath: /prometheus
+            {{- if $ruleConfigMaps }}
+            - name: alerts
+              mountPath: /etc/prometheus/alerts
+            {{- end }}
+          resources:
+            {{- toYaml .Values.prometheus.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: prometheus-config
+        - name: storage
+          persistentVolumeClaim:
+            claimName: prometheus-storage
+        {{- if $ruleConfigMaps }}
+        - name: alerts
+          projected:
+            sources:
+            {{- range $ruleConfigMaps }}
+              - configMap:
+                  name: {{ . }}
+                  optional: true
+            {{- end }}
+        {{- end }}
+{{- end }}

@@ -1,0 +1,144 @@
+{{- if .Values.tempo.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tempo-config
+  namespace: {{ include "beacon.namespace" . }}
+  labels:
+    {{- include "beacon.labels" . | nindent 4 }}
+    {{- include "beacon.componentLabels" "tempo" | nindent 4 }}
+data:
+  tempo.yaml: |
+    server:
+      http_listen_port: {{ .Values.tempo.service.port }}
+
+    distributor:
+      receivers:
+        otlp:
+          protocols:
+            grpc:
+              endpoint: 0.0.0.0:{{ .Values.tempo.service.otlpGrpcPort }}
+            http:
+              endpoint: 0.0.0.0:{{ .Values.tempo.service.otlpHttpPort }}
+
+    ingester:
+      max_block_duration: 5m
+      complete_block_timeout: 5m
+      trace_idle_period: 10s
+      flush_check_period: 10s
+
+    compactor:
+      compaction:
+        block_retention: 24h
+
+    storage:
+      trace:
+        backend: local
+        local:
+          path: /var/tempo/blocks
+        wal:
+          path: /var/tempo/wal
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tempo-storage
+  namespace: {{ include "beacon.namespace" . }}
+  labels:
+    {{- include "beacon.labels" . | nindent 4 }}
+    {{- include "beacon.componentLabels" "tempo" | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- if .Values.tempo.storage.storageClassName }}
+  storageClassName: {{ .Values.tempo.storage.storageClassName }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.tempo.storage.size }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tempo
+  namespace: {{ include "beacon.namespace" . }}
+  labels:
+    {{- include "beacon.labels" . | nindent 4 }}
+    {{- include "beacon.componentLabels" "tempo" | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: tempo
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include "beacon.configChecksum" (list .Values.tempo.service .Values.tempo.storage) }}
+      labels:
+        app: tempo
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: tempo
+          image: {{ .Values.tempo.image.repository }}:{{ .Values.tempo.image.tag }}
+          imagePullPolicy: {{ .Values.tempo.image.pullPolicy }}
+          args:
+            - -config.file=/etc/tempo/tempo.yaml
+          ports:
+            - containerPort: {{ .Values.tempo.service.port }}
+              name: http
+            - containerPort: {{ .Values.tempo.service.otlpGrpcPort }}
+              name: otlp-grpc
+            - containerPort: {{ .Values.tempo.service.otlpHttpPort }}
+              name: otlp-http
+          volumeMounts:
+            - name: config
+              mountPath: /etc/tempo
+            - name: storage
+              mountPath: /var/tempo
+          resources:
+            {{- toYaml .Values.tempo.resources | nindent 12 }}
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - /bin/sh
+                  - -c
+                  - sleep 15
+      volumes:
+        - name: config
+          configMap:
+            name: tempo-config
+        - name: storage
+          persistentVolumeClaim:
+            claimName: tempo-storage
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tempo
+  namespace: {{ include "beacon.namespace" . }}
+  labels:
+    {{- include "beacon.labels" . | nindent 4 }}
+    {{- include "beacon.componentLabels" "tempo" | nindent 4 }}
+spec:
+  type: {{ .Values.tempo.service.type }}
+  selector:
+    app: tempo
+  ports:
+    - port: {{ .Values.tempo.service.port }}
+      targetPort: http
+      name: http
+      protocol: TCP
+    - port: {{ .Values.tempo.service.otlpGrpcPort }}
+      targetPort: otlp-grpc
+      name: otlp-grpc
+      protocol: TCP
+    - port: {{ .Values.tempo.service.otlpHttpPort }}
+      targetPort: otlp-http
+      name: otlp-http
+      protocol: TCP
+{{- end }}

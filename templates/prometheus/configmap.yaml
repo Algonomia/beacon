@@ -1,0 +1,95 @@
+{{- if .Values.prometheus.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: {{ include "beacon.namespace" . }}
+  labels:
+    {{- include "beacon.labels" . | nindent 4 }}
+    {{- include "beacon.componentLabels" "prometheus" | nindent 4 }}
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: {{ .Values.prometheus.scrapeInterval }}
+      evaluation_interval: {{ .Values.prometheus.scrapeInterval }}
+
+    rule_files:
+      - '/etc/prometheus/alerts/*.yml'
+
+    scrape_configs:
+      - job_name: 'prometheus'
+        static_configs:
+          - targets: ['localhost:9090']
+
+      {{- if .Values.alloy.enabled }}
+      - job_name: 'alloy'
+        static_configs:
+          - targets: ['alloy:{{ .Values.alloy.service.httpPort }}']
+      {{- end }}
+
+      {{- if .Values.tempo.enabled }}
+      - job_name: 'tempo'
+        static_configs:
+          - targets: ['tempo:{{ .Values.tempo.service.port }}']
+      {{- end }}
+
+      {{- if .Values.loki.enabled }}
+      - job_name: 'loki'
+        static_configs:
+          - targets: ['loki:{{ .Values.loki.service.port }}']
+      {{- end }}
+
+      {{- if .Values.blackboxExporter.enabled }}
+      - job_name: 'blackbox-exporter'
+        static_configs:
+          - targets: ['blackbox-exporter:{{ .Values.blackboxExporter.service.port }}']
+
+      # Health check probes via Blackbox Exporter
+      {{- range .Values.healthCheckTargets }}
+      - job_name: 'health-{{ .name }}'
+        metrics_path: /probe
+        params:
+          module: [{{ .module }}]
+        static_configs:
+          - targets:
+            - {{ .url }}
+        relabel_configs:
+          - source_labels: [__address__]
+            target_label: __param_target
+          - source_labels: [__param_target]
+            target_label: instance
+          - target_label: __address__
+            replacement: blackbox-exporter:{{ $.Values.blackboxExporter.service.port }}
+      {{- end }}
+      {{- end }}
+
+      {{- if .Values.storageMonitoring.enabled }}
+      - job_name: 'lukscryptwalker-csi'
+        metrics_path: /metrics
+        static_configs:
+          - targets: ['{{ .Values.storageMonitoring.target }}']
+      {{- end }}
+
+      {{- if .Values.kubeStateMetrics.enabled }}
+      - job_name: 'kube-state-metrics'
+        static_configs:
+          - targets: ['kube-state-metrics:8080']
+      {{- end }}
+
+      {{- if .Values.nodeExporter.enabled }}
+      - job_name: 'node-exporter'
+        static_configs:
+          - targets: ['node-exporter:9100']
+      {{- end }}
+
+      {{- if .Values.ingressMonitoring.enabled }}
+      - job_name: 'nginx-ingress'
+        metrics_path: /metrics
+        static_configs:
+          - targets: ['{{ .Values.ingressMonitoring.target }}']
+      {{- end }}
+
+      {{- if .Values.extraScrapeConfigs }}
+{{ .Values.extraScrapeConfigs | indent 6 }}
+      {{- end }}
+{{- end }}

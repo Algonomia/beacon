@@ -1,0 +1,110 @@
+{{- if .Values.grafana.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: {{ include "beacon.namespace" . }}
+  labels:
+    {{- include "beacon.labels" . | nindent 4 }}
+    {{- include "beacon.componentLabels" "grafana" | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      annotations:
+        checksum/datasources: {{ include (print $.Template.BasePath "/grafana/configmap-datasources.yaml") . | sha256sum }}
+        checksum/dashboard-provider: {{ include (print $.Template.BasePath "/grafana/configmap-dashboard-provider.yaml") . | sha256sum }}
+      labels:
+        app: grafana
+    spec:
+      {{- with .Values.grafana.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: grafana
+        image: {{ .Values.grafana.image.repository }}:{{ .Values.grafana.image.tag }}
+        imagePullPolicy: {{ .Values.grafana.image.pullPolicy }}
+        ports:
+        - containerPort: {{ .Values.grafana.service.port }}
+          name: http
+        env:
+        - name: GF_SECURITY_ADMIN_USER
+          valueFrom:
+            secretKeyRef:
+              name: grafana-admin
+              key: admin-user
+        - name: GF_SECURITY_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: grafana-admin
+              key: admin-password
+        - name: GF_SERVER_ROOT_URL
+          value: {{ .Values.grafana.rootUrl | quote }}
+        - name: GF_SERVER_SERVE_FROM_SUB_PATH
+          value: {{ .Values.grafana.serveFromSubPath | quote }}
+        - name: GF_USERS_DEFAULT_THEME
+          value: {{ .Values.grafana.defaultTheme | quote }}
+        - name: GF_AUTH_ANONYMOUS_ENABLED
+          value: {{ .Values.grafana.anonymousEnabled | quote }}
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: http
+          initialDelaySeconds: 20
+          periodSeconds: 15
+        resources:
+          {{- toYaml .Values.grafana.resources | nindent 10 }}
+        volumeMounts:
+        - name: datasources
+          mountPath: /etc/grafana/provisioning/datasources
+        - name: dashboard-provider
+          mountPath: /etc/grafana/provisioning/dashboards
+        - name: dashboards
+          mountPath: /var/lib/grafana/dashboards
+        {{- if .Values.grafana.alertingConfigMaps }}
+        - name: alerting
+          mountPath: /etc/grafana/provisioning/alerting
+        {{- end }}
+        - name: storage
+          mountPath: /var/lib/grafana
+      volumes:
+      - name: datasources
+        configMap:
+          name: grafana-datasources
+      - name: dashboard-provider
+        configMap:
+          name: grafana-dashboard-provider
+      - name: dashboards
+        projected:
+          sources:
+          {{- if .Values.grafana.dashboardConfigMaps }}
+          {{- range .Values.grafana.dashboardConfigMaps }}
+            - configMap:
+                name: {{ . }}
+                optional: true
+          {{- end }}
+          {{- else }}
+            []
+          {{- end }}
+      {{- if .Values.grafana.alertingConfigMaps }}
+      - name: alerting
+        projected:
+          sources:
+          {{- range .Values.grafana.alertingConfigMaps }}
+            - configMap:
+                name: {{ . }}
+                optional: true
+          {{- end }}
+      {{- end }}
+      - name: storage
+        persistentVolumeClaim:
+          claimName: grafana-storage
+{{- end }}

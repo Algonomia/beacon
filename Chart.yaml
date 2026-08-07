@@ -1,0 +1,25 @@
+apiVersion: v2
+name: beacon
+description: Production-ready observability stack with Prometheus, Loki, Tempo, Grafana, Alloy, and Promtail
+type: application
+version: 2.2.0
+appVersion: "2.2"
+keywords:
+  - observability
+  - monitoring
+  - logging
+  - tracing
+  - prometheus
+  - loki
+  - tempo
+  - grafana
+  - alloy
+  - promtail
+  - kubernetes
+  - helm
+  - telemetry
+maintainers:
+  - name: Algonomia
+home: https://github.com/Algonomia/beacon
+sources:
+  - https://github.com/Algonomia/beacon

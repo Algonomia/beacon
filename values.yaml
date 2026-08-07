@@ -1,0 +1,304 @@
+# Global configuration
+global:
+  # Namespace where all resources will be deployed
+  namespace: observability
+
+  # Domain configuration
+  domain: example.com
+  basePath: /monitoring
+
+  # Application name for labels (used in some default targets)
+  appName: my-app
+
+# Promtail log collection targets
+# Each target scrapes /var/log/pods/<namespace>_<podPattern>/*/*.log
+# Optional "pipeline" adds Promtail pipeline_stages for parsing
+promtailTargets: []
+  # Example:
+  # - namespace: my-namespace
+  #   podPattern: "my-app-*"
+  #   labels:
+  #     app: my-app
+  #   pipeline:
+  #     - cri: {}
+  #     - json:
+  #         expressions:
+  #           level: level
+  #     - labels:
+  #         level:
+
+# Health check targets for Blackbox Exporter
+healthCheckTargets:
+  # Example: Monitor a service health endpoint
+  - name: my-service
+    url: http://my-service:80/health
+    module: http_2xx
+  # - name: database
+  #   url: http://postgres:5432
+  #   module: tcp_connect
+
+# Extra Prometheus scrape configs (passed through verbatim)
+extraScrapeConfigs: ""
+  # Example:
+  # extraScrapeConfigs: |
+  #   - job_name: 'my-exporter'
+  #     static_configs:
+  #       - targets: ["my-exporter:9187"]
+
+# Kube State Metrics
+kubeStateMetrics:
+  enabled: false
+  image:
+    repository: registry.k8s.io/kube-state-metrics/kube-state-metrics
+    tag: v2.10.1
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+# Node Exporter
+nodeExporter:
+  enabled: false
+  image:
+    repository: prom/node-exporter
+    tag: v1.7.0
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 64Mi
+
+# Storage monitoring (e.g. lukscryptwalker-csi)
+storageMonitoring:
+  enabled: false
+  target: lukscryptwalker-csi-metrics.kube-system.svc:9090
+
+# Ingress monitoring
+ingressMonitoring:
+  enabled: false
+  target: ingress-nginx-controller-metrics.ingress-nginx.svc:10254
+
+# Prometheus configuration
+prometheus:
+  enabled: true
+  image:
+    repository: prom/prometheus
+    tag: v2.48.0
+    pullPolicy: IfNotPresent
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 2Gi
+
+  storage:
+    size: 5Gi
+    storageClassName: ""  # Use default storage class
+
+  retention: 15d
+  scrapeInterval: 15s
+
+  rulesConfigMaps: []
+
+  alerts: false
+
+  service:
+    type: ClusterIP
+    port: 9090
+
+# Loki configuration
+loki:
+  enabled: true
+  image:
+    repository: grafana/loki
+    tag: "2.9.0"
+    pullPolicy: IfNotPresent
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+  storage:
+    size: 5Gi
+    storageClassName: ""
+
+  retention: 168h  # 7 days
+
+  service:
+    type: ClusterIP
+    port: 3100
+
+# Tempo configuration
+tempo:
+  enabled: true
+  image:
+    repository: grafana/tempo
+    tag: "2.3.0"
+    pullPolicy: IfNotPresent
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 512Mi
+
+  storage:
+    size: 5Gi
+    storageClassName: ""
+
+  service:
+    type: ClusterIP
+    port: 3200
+    otlpGrpcPort: 4317
+    otlpHttpPort: 4318
+
+# Grafana Alloy configuration
+alloy:
+  enabled: true
+  image:
+    repository: grafana/alloy
+    tag: v1.4.2
+    pullPolicy: IfNotPresent
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+
+  service:
+    type: ClusterIP
+    otlpGrpcPort: 4317
+    otlpHttpPort: 4318
+    faroPort: 12347
+    httpPort: 12345
+    lokiPushPort: 3100
+
+  ingress:
+    enabled: false
+    className: nginx
+    host: example.com
+    path: /monitoring/alloy/faro(/|$)(.*)
+    annotations:
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/rewrite-target: /$2
+      nginx.ingress.kubernetes.io/use-regex: "true"
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+    tls:
+      secretName: alloy-faro-tls
+
+# Promtail configuration
+promtail:
+  enabled: true
+  image:
+    repository: grafana/promtail
+    tag: "2.9.0"
+    pullPolicy: IfNotPresent
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+  # Promtail runs as DaemonSet
+  logPath: /var/log/pods
+
+# Blackbox Exporter configuration
+blackboxExporter:
+  enabled: true
+  image:
+    repository: prom/blackbox-exporter
+    tag: latest
+    pullPolicy: IfNotPresent
+
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 50m
+      memory: 64Mi
+
+  service:
+    type: ClusterIP
+    port: 9115
+
+# Grafana configuration
+grafana:
+  enabled: true
+  image:
+    repository: grafana/grafana
+    tag: "10.4.4"
+    pullPolicy: IfNotPresent
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+  storage:
+    size: 1Gi
+    storageClassName: ""
+
+  admin:
+    user: admin
+    password: ""
+
+  service:
+    type: ClusterIP
+    port: 3000
+
+  ingress:
+    enabled: true
+    className: nginx
+    host: example.com
+    path: /monitoring/grafana
+    annotations:
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+    tls:
+      secretName: grafana-tls
+
+  # Server configuration
+  rootUrl: https://example.com/monitoring/grafana
+  serveFromSubPath: true
+  defaultTheme: dark
+  anonymousEnabled: false
+
+  # Grafana dashboard folder name (shown in Grafana sidebar)
+  dashboardFolder: "Dashboards"
+
+  podSecurityContext:
+    runAsUser: 472
+    runAsGroup: 472
+    fsGroup: 472
+    fsGroupChangePolicy: OnRootMismatch
+
+  # Consumer-provided ConfigMaps for dashboards and alerting
+  # Each ConfigMap is mounted via projected volumes into Grafana
+  dashboardConfigMaps: []
+    # - grafana-dashboard-myproject
+  alertingConfigMaps: []
+    # - grafana-alerting-myproject
