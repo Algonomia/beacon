@@ -70,14 +70,19 @@ spec:
           mountPath: /etc/grafana/provisioning/datasources
         - name: dashboard-provider
           mountPath: /etc/grafana/provisioning/dashboards
-        - name: dashboards
-          mountPath: /var/lib/grafana/dashboards
         {{- if or .Values.grafana.alertingConfigMaps (and .Values.discovery.enabled .Values.grafana.sidecar.enabled) }}
         - name: alerting
           mountPath: /etc/grafana/provisioning/alerting
         {{- end }}
+        # `storage` must be mounted BEFORE `dashboards`, which nests inside it: mounts
+        # are applied in the order listed, so mounting the parent second masks the child
+        # and Grafana sees an empty dashboards directory while the sidecar, which mounts
+        # only the child, happily writes into it. That mismatch is invisible from
+        # outside the pod — dashboards simply never provision, with nothing in any log.
         - name: storage
           mountPath: /var/lib/grafana
+        - name: dashboards
+          mountPath: /var/lib/grafana/dashboards
       {{- if and .Values.discovery.enabled .Values.grafana.sidecar.enabled }}
       - name: sidecar-dashboards
         image: {{ .Values.grafana.sidecar.image }}
@@ -104,6 +109,23 @@ spec:
             value: {{ .Values.grafana.sidecar.alertingLabel | quote }}
           - name: FOLDER
             value: /etc/grafana/provisioning/alerting
+          # Grafana reads alerting provisioning at startup only, so a ConfigMap
+          # discovered later is written to disk and then ignored until something asks
+          # for a reload. Dashboards need no equivalent: their file provider polls.
+          - name: REQ_URL
+            value: http://localhost:{{ .Values.grafana.service.port }}/api/admin/provisioning/alerting/reload
+          - name: REQ_METHOD
+            value: POST
+          - name: REQ_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: grafana-admin
+                key: admin-user
+          - name: REQ_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: grafana-admin
+                key: admin-password
           - name: RESOURCE
             value: configmap
           - name: METHOD
