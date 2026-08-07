@@ -14,12 +14,6 @@ data:
     providers:
       - name: 'default'
         orgId: 1
-        # Every discovered dashboard lands in this one folder, whichever product it
-        # belongs to. `foldersFromFilesStructure: true` was tried as a way to give each
-        # consumer its own folder through the sidecar's folder annotation, and does not
-        # work on Grafana 10.4.4: combined with `folder` it provisions nothing at all
-        # (no error logged), and on its own it files every dashboard under General,
-        # subdirectories included. Verified 2026-08-07 against a live 10.4.4.
         folder: '{{ .Values.grafana.dashboardFolder | default "Dashboards" }}'
         type: file
         disableDeletion: false

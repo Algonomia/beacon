@@ -102,18 +102,7 @@ data:
       {{- end }}
 
       {{- if and .Values.discovery.enabled .Values.discovery.probes.enabled }}
-      # Probes discovered from annotated Services, so a consumer can add a health check
-      # without an edit to this release. `healthCheckTargets` above still works and is
-      # the only way to probe something that has no Service (an external URL).
-      #
-      #   prometheus.io/probe: "true"        required, opts the Service in
-      #   prometheus.io/probe-path: /ping    default /health
-      #   prometheus.io/probe-module: …      default http_2xx
-      #   prometheus.io/probe-name: backend  job becomes health-<name>, default the
-      #                                      Service's own name
-      #
-      # A Service exposing several ports is probed on every one of them: Prometheus'
-      # relabelling has no backreferences, so a port filter cannot be expressed here.
+      # see values.yaml discovery.probes
       - job_name: 'blackbox-discovered'
         metrics_path: /probe
         kubernetes_sd_configs:
@@ -152,8 +141,6 @@ data:
           - source_labels: [__meta_kubernetes_namespace]
             target_label: namespace
           {{- range $target, $src := .Values.discovery.podLabels }}
-          # read off the Service's labels, so a probe carries the same identity as the
-          # metrics and logs of the instance behind it
           - source_labels: [__meta_kubernetes_service_label_{{ $src | replace "-" "_" | replace "." "_" | replace "/" "_" }}]
             target_label: {{ $target }}
             regex: (.+)

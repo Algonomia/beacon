@@ -90,11 +90,7 @@ discovery:
   extraRelabelConfigs: ""
 
   probes:
-    # Discover blackbox probe targets from Services annotated `prometheus.io/probe: "true"`
-    # (see the blackbox-discovered job in templates/prometheus/configmap.yaml for the full
-    # annotation set). Without this, probe targets are the one thing a consumer still cannot
-    # add without an edit to this release, so any alert it writes on `probe_success`
-    # evaluates against an empty series instead of firing. Needs blackboxExporter.enabled.
+    # probe targets from Service annotations
     enabled: true
 
 # Prometheus configuration
@@ -217,14 +213,7 @@ alloy:
     lokiPushPort: 3100
 
   otlp:
-    # OTLP resource attribute -> label, promoted onto the metric series and Loki streams
-    # built from pushed telemetry. Senders set the attributes themselves, usually through
-    # OTEL_RESOURCE_ATTRIBUTES. Traces are untouched: Tempo keeps resource attributes.
-    #
-    # Discovery cannot do this job — pushed telemetry reaches neither Prometheus' pod
-    # discovery nor the Alloy DaemonSet — so mirror `discovery.podLabels` here to have
-    # scraped and pushed telemetry carry the same identity.
-    # Empty (the default) forwards OTLP data exactly as it arrives.
+    # resource attr -> label on pushed telemetry
     resourceLabels: {}
       # env: env
       # product: product
@@ -339,31 +328,17 @@ grafana:
   # Grafana dashboard folder name (shown in Grafana sidebar)
   dashboardFolder: "Dashboards"
 
-  # Sign in to Grafana with the session the application already issued.
-  #
-  # A small shim answers nginx's auth_request by forwarding the caller's cookie to
-  # `validateUrl` — an endpoint that echoes the current user — and returning the username
-  # in `userHeader`, which Grafana's auth.proxy trusts. The application has already done
-  # the authenticating, so this works the same whether the user signed in with a local
-  # password, OpenID or SAML.
-  #
-  # ⚠️ auth.proxy TRUSTS that header. Anything able to reach Grafana's Service directly can
-  # forge it, so `whitelist` must pin the ingress controller (or a NetworkPolicy must), and
-  # Grafana must not be reachable by any other route.
+  # sign in with the app session; whitelist or it is forgeable
   authProxy:
     enabled: false
-    # e.g. http://back.platform.svc/status/ — must answer 200 + JSON for a valid session
+    # endpoint echoing the current user
     validateUrl: ""
     usernameField: username
     userHeader: X-WEBAUTH-USER
-    # Where a caller with no session is sent to get one — the application's login page.
-    # Empty means nginx returns 401 instead of redirecting.
+    # app login page; empty means 401
     signinUrl: ""
-    # CIDR(s) allowed to present the header. Empty means Grafana accepts it from anywhere,
-    # which is only safe if a NetworkPolicy already does this job.
+    # who may set the header
     whitelist: ""
-    # Grafana role given to everyone signing in this way. The shim reports a username, not
-    # a role; anything finer needs the validate endpoint to return one.
     defaultRole: Viewer
     image: python:3.12-alpine
     service:

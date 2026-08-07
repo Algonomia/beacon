@@ -11,16 +11,7 @@ metadata:
     {{- include "beacon.componentLabels" "grafana-auth-shim" | nindent 4 }}
 data:
   shim.py: |
-    """Answer nginx's auth_request for Grafana by asking the application who the caller is.
-
-    The application has already authenticated the user — by password, OpenID or SAML — and
-    left a session cookie. This forwards that cookie to an endpoint that echoes the current
-    user, and translates the answer into the header Grafana's auth.proxy trusts. Nothing
-    here verifies a credential, so it works the same whichever way the user logged in.
-
-    200 + <user header>  the session is valid
-    401                  no session, expired, or the application refused
-    """
+    """Resolve the caller's app session into the header Grafana's auth.proxy trusts."""
     import json
     import os
     import urllib.error
@@ -35,7 +26,6 @@ data:
 
 
     def resolve_user(cookie):
-        """Return the username behind this cookie, or None."""
         if not cookie:
             return None
         req = urllib.request.Request(VALIDATE_URL, headers={"Cookie": cookie})
@@ -45,11 +35,9 @@ data:
                     return None
                 body = json.loads(resp.read().decode("utf-8", "replace"))
         except (urllib.error.URLError, urllib.error.HTTPError, ValueError, OSError):
-            # Upstream down, refusing, or not answering JSON. Deny rather than guess:
-            # a shim that fails open is a shim that publishes your dashboards.
+            # deny, never fail open
             return None
         user = body.get(USERNAME_FIELD)
-        # An anonymous session still answers 200 on some apps, with an empty username.
         return user if isinstance(user, str) and user.strip() else None
 
 
@@ -74,7 +62,6 @@ data:
             self.end_headers()
 
         def log_message(self, fmt, *args):
-            # One line per decision, so Loki shows who was let in and who was not.
             print("auth-shim %s" % (fmt % args), flush=True)
 
 

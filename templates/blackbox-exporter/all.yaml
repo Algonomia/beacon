@@ -20,11 +20,7 @@ data:
           method: GET
           preferred_ip_protocol: "ip4"
           headers:
-            # Declared rather than left to the exporter's default, so a probed
-            # application can recognise and discount these requests. Probing a health
-            # endpoint every scrape interval is *synthetic* traffic: counted as real, it
-            # keeps any "no traffic" alert permanently silent on a dead instance — the
-            # same way a kubelet liveness probe does.
+            # recognisable, so apps can discount probes
             User-Agent: beacon-blackbox/1
 ---
 apiVersion: apps/v1
