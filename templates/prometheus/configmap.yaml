@@ -34,6 +34,12 @@ data:
           - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
             action: keep
             regex: "true"
+          {{- if .Values.postgresMonitoring.enabled }}
+          # exporter pods usually carry the scrape annotation too: without this, both jobs store it
+          - source_labels: [__meta_kubernetes_pod_label_{{ .Values.postgresMonitoring.selectorLabel | replace "-" "_" | replace "." "_" | replace "/" "_" }}]
+            action: drop
+            regex: {{ .Values.postgresMonitoring.selectorValue | default ".+" | quote }}
+          {{- end }}
           - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
             action: replace
             target_label: __metrics_path__
@@ -47,8 +53,11 @@ data:
             target_label: namespace
           - source_labels: [__meta_kubernetes_pod_name]
             target_label: pod
+          {{- if .Values.discovery.containerLabel }}
+          # see values.yaml discovery.containerLabel
           - source_labels: [__meta_kubernetes_pod_container_name]
             target_label: container
+          {{- end }}
           {{- range $target, $src := .Values.discovery.podLabels }}
           - source_labels: [__meta_kubernetes_pod_label_{{ $src | replace "-" "_" | replace "." "_" | replace "/" "_" }}]
             target_label: {{ $target }}
@@ -175,6 +184,41 @@ data:
         metrics_path: /metrics
         static_configs:
           - targets: ['{{ .Values.ingressMonitoring.target }}']
+      {{- end }}
+
+      {{- if .Values.postgresMonitoring.enabled }}
+      # see values.yaml postgresMonitoring
+      - job_name: {{ .Values.postgresMonitoring.jobName | quote }}
+        metrics_path: {{ .Values.postgresMonitoring.metricsPath }}
+        kubernetes_sd_configs:
+          - role: pod
+            {{- with .Values.postgresMonitoring.namespaces }}
+            namespaces:
+              names:
+                {{- toYaml . | nindent 16 }}
+            {{- end }}
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_{{ .Values.postgresMonitoring.selectorLabel | replace "-" "_" | replace "." "_" | replace "/" "_" }}]
+            action: keep
+            regex: {{ .Values.postgresMonitoring.selectorValue | default ".+" | quote }}
+          # one target per pod: the port is a literal here, unlike the annotation-driven job above
+          - source_labels: [__meta_kubernetes_pod_container_port_number]
+            action: keep
+            regex: {{ .Values.postgresMonitoring.port | quote }}
+          - source_labels: [__meta_kubernetes_namespace]
+            target_label: namespace
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: pod
+          {{- range $target, $src := .Values.discovery.podLabels }}
+          - source_labels: [__meta_kubernetes_pod_label_{{ $src | replace "-" "_" | replace "." "_" | replace "/" "_" }}]
+            target_label: {{ $target }}
+            regex: (.+)
+            action: replace
+          {{- end }}
+        {{- with .Values.postgresMonitoring.metricRelabelConfigs }}
+        metric_relabel_configs:
+          {{- tpl . $ | nindent 10 }}
+        {{- end }}
       {{- end }}
 
       {{- if .Values.extraScrapeConfigs }}

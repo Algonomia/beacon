@@ -65,6 +65,13 @@ Namespace
 {{- end }}
 
 {{/*
+Whether Prometheus needs Kubernetes SD, and so a ServiceAccount and list/watch RBAC.
+*/}}
+{{- define "beacon.prometheus.kubeSD" -}}
+{{- if or .Values.discovery.enabled .Values.postgresMonitoring.enabled -}}true{{- end -}}
+{{- end }}
+
+{{/*
 Config checksum
 */}}
 {{- define "beacon.configChecksum" -}}

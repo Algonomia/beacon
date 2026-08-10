@@ -1,4 +1,4 @@
-{{- if and .Values.prometheus.enabled .Values.discovery.enabled }}
+{{- if and .Values.prometheus.enabled (include "beacon.prometheus.kubeSD" .) }}
 apiVersion: v1
 kind: ServiceAccount
 metadata:
