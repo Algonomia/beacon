@@ -157,6 +157,12 @@ loki:
     storageClassName: ""
 
   retention: 168h  # 7 days
+
+  # Cardinality guards; 0 or empty leaves Loki's own default.
+  limits:
+    maxLabelValueLength: 128    # Loki default: 2048
+    maxStreamsPerUser: 5000     # Loki default: 0 (unlimited)
+    maxLabelNamesPerSeries: 15  # Loki default: 30
   # highest-priority match wins; unmatched streams fall back to `retention`.
   # the selector must use an indexed stream label (env, product, namespace...)
   retentionStreams: []
@@ -240,6 +246,18 @@ alloy:
     resourceLabels: {}
       # env: env
       # product: product
+
+  faro:
+    # Faro logfmt field -> Loki label. Never map session_id/user_id: per-user cardinality.
+    # Label names must match ^[a-zA-Z_][a-zA-Z0-9_]*$. Set `labels: null` to disable.
+    labels:
+      app_environment: env
+      app_name: product
+      kind: kind
+    # Browser-asserted label values are truncated to this length before being promoted.
+    maxLabelValueLength: 64
+    # When set, the receiver 401s requests without a matching x-api-key. Public: it ships to browsers.
+    apiKey: ""
 
   logs:
     enabled: true

@@ -1,4 +1,12 @@
 {{- if and .Values.alloy.enabled .Values.alloy.ingress.enabled }}
+{{- $ingress := .Values.alloy.ingress }}
+{{- $hosts := $ingress.hosts | default (list) }}
+{{- if $ingress.host }}
+{{- $hosts = append $hosts $ingress.host }}
+{{- end }}
+{{- if not $hosts }}
+{{- fail "alloy.ingress.enabled is true but neither alloy.ingress.host nor alloy.ingress.hosts is set" }}
+{{- end }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -8,27 +16,31 @@ metadata:
   labels:
     {{- include "beacon.labels" . | nindent 4 }}
     {{- include "beacon.componentLabels" "alloy" | nindent 4 }}
-  {{- with .Values.alloy.ingress.annotations }}
+  {{- with $ingress.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
-  ingressClassName: {{ .Values.alloy.ingress.className }}
-  {{- if .Values.alloy.ingress.tls }}
+  ingressClassName: {{ $ingress.className }}
+  {{- if $ingress.tls }}
   tls:
     - hosts:
-        - {{ .Values.alloy.ingress.host }}
-      secretName: {{ .Values.alloy.ingress.tls.secretName }}
+        {{- range $hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      secretName: {{ $ingress.tls.secretName }}
   {{- end }}
   rules:
-  - host: {{ .Values.alloy.ingress.host }}
+  {{- range $hosts }}
+  - host: {{ . | quote }}
     http:
       paths:
-      - path: {{ .Values.alloy.ingress.path }}
+      - path: {{ $ingress.path }}
         pathType: ImplementationSpecific
         backend:
           service:
             name: alloy
             port:
-              number: {{ .Values.alloy.service.faroPort }}
+              number: {{ $.Values.alloy.service.faroPort }}
+  {{- end }}
 {{- end }}

@@ -123,6 +123,9 @@ data:
         listen_address = "0.0.0.0"
         listen_port = {{ .Values.alloy.service.faroPort }}
         cors_allowed_origins = ["*"]
+        {{- if and .Values.alloy.faro .Values.alloy.faro.apiKey }}
+        api_key = {{ .Values.alloy.faro.apiKey | quote }}
+        {{- end }}
       }
 
       output {
@@ -139,6 +142,38 @@ data:
           source   = "frontend",
         }
       }
+      {{- if and .Values.alloy.faro .Values.alloy.faro.labels }}
+      {{- range $field, $label := .Values.alloy.faro.labels }}
+      {{- if not (regexMatch "^[a-zA-Z_][a-zA-Z0-9_]*$" (toString $label)) }}
+      {{- fail (printf "alloy.faro.labels: %q is not a valid Loki label name (expected ^[a-zA-Z_][a-zA-Z0-9_]*$). A name with a dash, space or quote renders a config Alloy refuses to load, which crashloops the whole alloy Deployment." $label) }}
+      {{- end }}
+      {{- end }}
+
+      stage.logfmt {
+        mapping = {
+          {{- range $field, $label := .Values.alloy.faro.labels }}
+          {{ $label }} = {{ $field | quote }},
+          {{- end }}
+        }
+      }
+
+      {{- if .Values.alloy.faro.maxLabelValueLength }}
+      {{- range $field, $label := .Values.alloy.faro.labels }}
+      stage.template {
+        source   = {{ $label | quote }}
+        template = "{{ `{{ .Value | trunc ` }}{{ $.Values.alloy.faro.maxLabelValueLength }}{{ ` }}` }}"
+      }
+      {{- end }}
+      {{- end }}
+
+      stage.labels {
+        values = {
+          {{- range $field, $label := .Values.alloy.faro.labels }}
+          {{ $label }} = "",
+          {{- end }}
+        }
+      }
+      {{- end }}
 
       forward_to = [loki.write.default.receiver]
     }
