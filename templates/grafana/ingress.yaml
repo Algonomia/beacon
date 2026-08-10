@@ -11,8 +11,11 @@ metadata:
   annotations:
     {{- toYaml .Values.grafana.ingress.annotations | nindent 4 }}
     {{- if .Values.grafana.authProxy.enabled }}
-    nginx.ingress.kubernetes.io/auth-url: "http://grafana-auth-shim.{{ include "beacon.namespace" . }}.svc.cluster.local:{{ .Values.grafana.authProxy.service.port }}/"
+    {{- $ns := include "beacon.namespace" . }}
+    nginx.ingress.kubernetes.io/auth-url: "http://grafana-auth-shim.{{ $ns }}.svc.cluster.local:{{ .Values.grafana.authProxy.service.port }}/"
     nginx.ingress.kubernetes.io/auth-response-headers: {{ .Values.grafana.authProxy.userHeader | quote }}
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_clear_input_headers {{ .Values.grafana.authProxy.userHeader | quote }};
     {{- with .Values.grafana.authProxy.signinUrl }}
     nginx.ingress.kubernetes.io/auth-signin: {{ . | quote }}
     {{- end }}
