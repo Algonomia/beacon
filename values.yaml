@@ -28,11 +28,7 @@ promtailTargets: []
   #         level:
 
 # Health check targets for Blackbox Exporter
-healthCheckTargets:
-  # Example: Monitor a service health endpoint
-  - name: my-service
-    url: http://my-service:80/health
-    module: http_2xx
+healthCheckTargets: []
   # - name: database
   #   url: http://postgres:5432
   #   module: tcp_connect
