@@ -135,6 +135,21 @@ This chart optimises for a private cluster network, not a hostile one. Before ex
 - **Alloy's OTLP and Faro receivers allow all CORS origins** (`["*"]`), so any page can post telemetry if the receiver is reachable.
 - Nothing in the chart provisions NetworkPolicies.
 
+### Grafana sign-in via the application's session (`grafana.authProxy`)
+
+Off by default. A shim answers nginx's `auth_request` by forwarding the caller's cookie to
+`authProxy.validateUrl` and returning that username in `X-WEBAUTH-USER`, which Grafana trusts.
+
+⚠️ Grafana trusts that header from anything reaching its Service — the protection is entirely in
+front of Grafana. Two combinations are refused at render time:
+
+- empty `validateUrl` — the shim has nothing to resolve against.
+- `grafana.ingress.enabled: false` — the `auth_request` annotations live on that Ingress, so
+  nothing runs the subrequest and any pod can sign in as any user.
+
+`authProxy.whitelist` restricts who may set the header, and only means anything on a controller
+that enforces `auth-url`.
+
 ## Discovery mode (recommended for shared clusters)
 
 By default beacon *enumerates*: every consumer ConfigMap is listed in beacon's values, so adding an
@@ -167,6 +182,42 @@ independently of whoever owns the cluster's observability stack. Two instances o
 
 Label keys are configurable via `grafana.sidecar.dashboardLabel`, `grafana.sidecar.alertingLabel`
 and `prometheus.sidecar.rulesLabel`.
+
+⚠️ `discovery.containerLabel` defaults to `false` and should stay there: it scrapes one target per
+container instead of per pod, which on a 7-container Postgres pod was a 7× series multiplier that
+OOM-killed Prometheus.
+
+## Infrastructure scrape jobs
+
+All off by default, and none enabled implicitly by `discovery.enabled`.
+
+| values key | job | answers |
+|---|---|---|
+| `nodeExporter.enabled` | `node-exporter` | how loaded is the **host** — node CPU, RAM, disk, network |
+| `kubeStateMetrics.enabled` | `kube-state-metrics` | what Kubernetes **declares** — pod phase, restarts, replicas, resource requests/limits |
+| `containerMonitoring.enabled` | `kubelet` | what a **container actually uses** — per-container CPU and working-set memory |
+| `postgresMonitoring.enabled` | `postgres` | Postgres exporter pods, one target per pod |
+| `ingressMonitoring.enabled` | `nginx-ingress` | ingress-nginx controller metrics |
+| `storageMonitoring.enabled` | `lukscryptwalker-csi` | the storage CSI's own metrics |
+
+The first three do not overlap: the host is node-exporter, the *limit* is kube-state-metrics, and
+actual usage is `containerMonitoring`. Without it `container_cpu_usage_seconds_total` and
+`container_memory_working_set_bytes` do not exist and panels built on them render empty.
+
+```yaml
+containerMonitoring:
+  enabled: true
+  metricsPath: /metrics/resource   # or /metrics/cadvisor for the full set
+```
+
+`/metrics/cadvisor` adds per-filesystem, per-interface and CFS-throttling detail at a much higher
+series count — pair it with `containerMonitoring.metricRelabelConfigs`.
+
+`ingressMonitoring` and `storageMonitoring` point at a fixed `target` address; enabling either
+where that Service does not exist just adds a permanently `down` target.
+
+Both pod-discovering jobs drop pods in phase `Failed` or `Succeeded`, which can never answer a
+scrape.
 
 ## Log collection: Alloy vs promtail
 
