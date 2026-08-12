@@ -34,6 +34,9 @@ data:
           - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
             action: keep
             regex: "true"
+          - source_labels: [__meta_kubernetes_pod_phase]
+            action: drop
+            regex: (Failed|Succeeded)
           {{- if .Values.postgresMonitoring.enabled }}
           # exporter pods usually carry the scrape annotation too: without this, both jobs store it
           - source_labels: [__meta_kubernetes_pod_label_{{ .Values.postgresMonitoring.selectorLabel | replace "-" "_" | replace "." "_" | replace "/" "_" }}]
@@ -224,6 +227,9 @@ data:
           - source_labels: [__meta_kubernetes_pod_container_port_number]
             action: keep
             regex: {{ .Values.postgresMonitoring.port | quote }}
+          - source_labels: [__meta_kubernetes_pod_phase]
+            action: drop
+            regex: (Failed|Succeeded)
           - source_labels: [__meta_kubernetes_namespace]
             target_label: namespace
           - source_labels: [__meta_kubernetes_pod_name]
