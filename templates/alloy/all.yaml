@@ -10,12 +10,7 @@ metadata:
     {{- include "beacon.componentLabels" "alloy" | nindent 4 }}
 data:
   config.alloy: |
-    // =============================================================================
-    // Grafana Alloy Configuration
-    // Receives OTLP telemetry from backend services
-    // =============================================================================
 
-    // OTLP receiver for backend telemetry
     otelcol.receiver.otlp "backend" {
       grpc {
         endpoint = "0.0.0.0:{{ .Values.alloy.service.otlpGrpcPort }}"
@@ -43,7 +38,6 @@ data:
 
     {{- if .Values.alloy.otlp.resourceLabels }}
 
-    // OTLP resource attrs -> labels
     otelcol.processor.transform "identity" {
       error_mode = "ignore"
 
@@ -75,7 +69,6 @@ data:
     }
     {{- end }}
 
-    // Loki receiver for Promtail (stdout/stderr logs)
     loki.source.api "promtail" {
       http {
         listen_address = "0.0.0.0"
@@ -85,7 +78,6 @@ data:
       // Keep labels sent by Promtail (app, namespace, etc.)
     }
 
-    // Export metrics for Prometheus to scrape
     otelcol.exporter.prometheus "default" {
       forward_to = [prometheus.remote_write.default.receiver]
     }
@@ -96,7 +88,6 @@ data:
       }
     }
 
-    // Export traces to Tempo
     otelcol.exporter.otlp "tempo" {
       client {
         endpoint = "tempo:{{ .Values.tempo.service.otlpGrpcPort }}"
@@ -106,7 +97,6 @@ data:
       }
     }
 
-    // Export logs to Loki
     otelcol.exporter.loki "default" {
       forward_to = [loki.write.default.receiver]
     }
@@ -117,7 +107,6 @@ data:
       }
     }
 
-    // Faro receiver for frontend RUM telemetry
     faro.receiver "default" {
       server {
         listen_address = "0.0.0.0"
@@ -134,7 +123,6 @@ data:
       }
     }
 
-    // Add required labels to Faro logs before sending to Loki
     loki.process "faro" {
       stage.static_labels {
         values = {

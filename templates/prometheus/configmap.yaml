@@ -57,7 +57,6 @@ data:
           - source_labels: [__meta_kubernetes_pod_name]
             target_label: pod
           {{- if .Values.discovery.containerLabel }}
-          # see values.yaml discovery.containerLabel
           - source_labels: [__meta_kubernetes_pod_container_name]
             target_label: container
           {{- end }}
@@ -95,7 +94,6 @@ data:
         static_configs:
           - targets: ['blackbox-exporter:{{ .Values.blackboxExporter.service.port }}']
 
-      # Health check probes via Blackbox Exporter
       {{- range .Values.healthCheckTargets }}
       - job_name: 'health-{{ .name }}'
         metrics_path: /probe
@@ -114,7 +112,6 @@ data:
       {{- end }}
 
       {{- if and .Values.discovery.enabled .Values.discovery.probes.enabled }}
-      # see values.yaml discovery.probes
       - job_name: 'blackbox-discovered'
         metrics_path: /probe
         kubernetes_sd_configs:
@@ -209,7 +206,6 @@ data:
       {{- end }}
 
       {{- if .Values.postgresMonitoring.enabled }}
-      # see values.yaml postgresMonitoring
       - job_name: {{ .Values.postgresMonitoring.jobName | quote }}
         metrics_path: {{ .Values.postgresMonitoring.metricsPath }}
         kubernetes_sd_configs:

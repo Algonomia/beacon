@@ -2,9 +2,7 @@ global:
   # every resource lands here, regardless of helm --namespace
   namespace: observability
 
-# Promtail log collection targets
 # Each target scrapes /var/log/pods/<namespace>_<podPattern>/*/*.log
-# Optional "pipeline" adds Promtail pipeline_stages for parsing
 promtailTargets: []
   # Example:
   # - namespace: my-namespace
@@ -19,13 +17,11 @@ promtailTargets: []
   #     - labels:
   #         level:
 
-# Health check targets for Blackbox Exporter
 healthCheckTargets: []
   # - name: database
   #   url: http://postgres:5432
   #   module: tcp_connect
 
-# Extra Prometheus scrape configs (passed through verbatim)
 extraScrapeConfigs: ""
   # Example:
   # extraScrapeConfigs: |
@@ -33,7 +29,6 @@ extraScrapeConfigs: ""
   #     static_configs:
   #       - targets: ["my-exporter:9187"]
 
-# Kube State Metrics
 kubeStateMetrics:
   enabled: false
   image:
@@ -47,7 +42,6 @@ kubeStateMetrics:
       cpu: 100m
       memory: 128Mi
 
-# Node Exporter
 nodeExporter:
   enabled: false
   image:
@@ -61,17 +55,14 @@ nodeExporter:
       cpu: 100m
       memory: 64Mi
 
-# Storage monitoring (e.g. lukscryptwalker-csi)
 storageMonitoring:
   enabled: false
   target: lukscryptwalker-csi-metrics.kube-system.svc:9090
 
-# Ingress monitoring
 ingressMonitoring:
   enabled: false
   target: ingress-nginx-controller-metrics.ingress-nginx.svc:10254
 
-# Postgres exporter scraping (in-cluster pods; external exporters go in extraScrapeConfigs)
 postgresMonitoring:
   enabled: false
   jobName: postgres
@@ -80,12 +71,10 @@ postgresMonitoring:
   selectorLabel: postgres-operator.crunchydata.com/crunchy-postgres-exporter
   selectorValue: "true"       # empty: match the label with any value
   namespaces: []
-  # metric_relabel_configs for this job. Per-table metrics dominate: ~197k series from one
-  # Crunchy exporter over 746 tables.
-  #   metricRelabelConfigs: |
-  #     - source_labels: [__name__]
-  #       action: drop
-  #       regex: (pg|ccp)_(stat|statio)_user_tables_.*
+  # metricRelabelConfigs: |
+  #   - source_labels: [__name__]
+  #     action: drop
+  #     regex: (pg|ccp)_(stat|statio)_user_tables_.*
   metricRelabelConfigs: ""
 
 containerMonitoring:
@@ -103,10 +92,8 @@ discovery:
   containerLabel: false       # true splits one annotated endpoint into one target per container
 
   probes:
-    # probe targets from Service annotations
     enabled: true
 
-# Prometheus configuration
 prometheus:
   enabled: true
   image:
@@ -124,7 +111,7 @@ prometheus:
 
   storage:
     size: 5Gi
-    storageClassName: ""  # Use default storage class
+    storageClassName: ""
 
   retention: 15d
   scrapeInterval: 15s
@@ -149,7 +136,6 @@ prometheus:
     type: ClusterIP
     port: 9090
 
-# Loki configuration
 loki:
   enabled: true
   image:
@@ -169,7 +155,7 @@ loki:
     size: 5Gi
     storageClassName: ""
 
-  retention: 168h  # 7 days
+  retention: 168h
 
   limits:
     maxLabelValueLength: 128    # Loki default: 2048
@@ -203,7 +189,6 @@ loki:
     type: ClusterIP
     port: 3100
 
-# Tempo configuration
 tempo:
   enabled: true
   image:
@@ -229,7 +214,6 @@ tempo:
     otlpGrpcPort: 4317
     otlpHttpPort: 4318
 
-# Grafana Alloy configuration
 alloy:
   enabled: true
   image:
@@ -297,7 +281,6 @@ alloy:
     tls:
       secretName: alloy-faro-tls
 
-# Promtail configuration
 promtail:
   enabled: true
   image:
@@ -313,10 +296,8 @@ promtail:
       cpu: 200m
       memory: 128Mi
 
-  # Promtail runs as DaemonSet
   logPath: /var/log/pods
 
-# Blackbox Exporter configuration
 blackboxExporter:
   enabled: true
   image:
@@ -336,7 +317,6 @@ blackboxExporter:
     type: ClusterIP
     port: 9115
 
-# Grafana configuration
 grafana:
   enabled: true
   image:
@@ -375,16 +355,13 @@ grafana:
     tls:
       secretName: grafana-tls
 
-  # Server configuration
   rootUrl: https://example.com/monitoring/grafana
   serveFromSubPath: true
   defaultTheme: dark
   anonymousEnabled: false
 
-  # Grafana dashboard folder name (shown in Grafana sidebar)
   dashboardFolder: "Dashboards"
 
-  # app session -> Grafana login
   authProxy:
     enabled: false
     # endpoint echoing current user
@@ -426,8 +403,6 @@ grafana:
     fsGroup: 472
     fsGroupChangePolicy: OnRootMismatch
 
-  # Consumer-provided ConfigMaps for dashboards and alerting
-  # Each ConfigMap is mounted via projected volumes into Grafana
   dashboardConfigMaps: []
     # - grafana-dashboard-myproject
   alertingConfigMaps: []
