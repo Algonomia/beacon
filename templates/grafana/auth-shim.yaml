@@ -1,4 +1,10 @@
 {{- if and .Values.grafana.enabled .Values.grafana.authProxy.enabled }}
+{{- if not .Values.grafana.authProxy.validateUrl }}
+{{- fail "grafana.authProxy.enabled is true but grafana.authProxy.validateUrl is empty: the shim has no endpoint to resolve the caller's session against, so it would deny every request." }}
+{{- end }}
+{{- if not .Values.grafana.ingress.enabled }}
+{{- fail (printf "grafana.authProxy.enabled is true but grafana.ingress.enabled is false: the auth_request annotations live on that Ingress, so nothing would run the subrequest — while Grafana still trusts %s from anything able to reach its Service, letting any pod sign in as any user. Enable the ingress, or keep authProxy off." .Values.grafana.authProxy.userHeader) }}
+{{- end }}
 {{- $port := int .Values.grafana.authProxy.service.port }}
 ---
 apiVersion: v1
