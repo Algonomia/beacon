@@ -100,6 +100,13 @@ postgresMonitoring:
   #       regex: (pg|ccp)_(stat|statio)_user_tables_.*
   metricRelabelConfigs: ""
 
+containerMonitoring:
+  enabled: false
+  jobName: kubelet
+  metricsPath: /metrics/resource
+  insecureSkipVerify: true
+  metricRelabelConfigs: ""
+
 discovery:
   enabled: false
   namespaces: []
