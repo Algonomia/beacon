@@ -1,14 +1,6 @@
-# Global configuration
 global:
-  # Namespace where all resources will be deployed
+  # every resource lands here, regardless of helm --namespace
   namespace: observability
-
-  # Domain configuration
-  domain: example.com
-  basePath: /monitoring
-
-  # Application name for labels (used in some default targets)
-  appName: my-app
 
 # Promtail log collection targets
 # Each target scrapes /var/log/pods/<namespace>_<podPattern>/*/*.log

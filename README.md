@@ -1,336 +1,109 @@
-# Beacon
+# beacon
 
-A comprehensive, production-ready observability stack for Kubernetes.
+A Kubernetes observability stack packaged as a Helm chart: Prometheus, Loki, Tempo, Grafana,
+Grafana Alloy, promtail, blackbox-exporter, and optional kube-state-metrics and node-exporter.
 
-## Components
+beacon ships **no dashboards and no alert rules**. Applications supply their own.
 
-- **Prometheus** - Metrics collection, storage, and alerting
-- **Loki** - Log aggregation and querying
-- **Tempo** - Distributed tracing backend
-- **Grafana Alloy** - Unified telemetry pipeline (OTLP + Faro RUM)
-- **Promtail** - Log shipper (DaemonSet)
-- **Blackbox Exporter** - HTTP/TCP/ICMP probing
-- **Grafana** - Visualization, dashboards, and alerting UI
+## Install
 
-## Installation
-
-The chart is published as a Helm repository:
+Requires Kubernetes 1.20+, Helm 3.8+, and a storage class for PVCs (or set `storageClassName`).
 
 ```bash
 helm repo add beacon https://algonomia.github.io/beacon
 helm repo update
-helm install observability beacon/beacon --namespace observability --create-namespace
+helm install observability beacon/beacon \
+  --namespace observability --create-namespace \
+  --values my-values.yaml
 ```
 
-### Prerequisites
+Upgrade with `helm upgrade`, same flags. Uninstall with `helm uninstall observability -n
+observability`; PVCs survive, delete them with `kubectl delete pvc -n observability -l
+app.kubernetes.io/instance=observability` to drop the data.
 
-- Kubernetes 1.20+
-- Helm 3.8+
-- Storage class configured for PVCs (or use `storageClassName` in values)
+Every setting is in [`values.yaml`](values.yaml).
 
-### Install
+⚠️ Resources land in `global.namespace`, **not** in `--namespace`.
 
-```bash
-# Install with default values
-helm install observability . \
-  --namespace observability \
-  --create-namespace
+## Instrument an application
 
-# Install with custom values
-helm install observability . \
-  --namespace observability \
-  --create-namespace \
-  --values custom-values.yaml
-
-# Dry-run to see generated manifests
-helm install observability . \
-  --namespace observability \
-  --dry-run --debug
-```
-
-### Upgrade
-
-```bash
-helm upgrade observability . \
-  --namespace observability \
-  --values custom-values.yaml
-```
-
-### Uninstall
-
-```bash
-helm uninstall observability --namespace observability
-
-# Optionally delete PVCs (this deletes all data!)
-kubectl delete pvc -n observability -l app.kubernetes.io/instance=observability
-```
-
-## Configuration
-
-See `values.yaml` for all configuration options.
-
-### Key Configuration
-
-```yaml
-global:
-  namespace: observability
-  domain: example.com
-  basePath: /monitoring
-
-prometheus:
-  enabled: true
-  storage:
-    size: 5Gi
-  retention: 15d
-
-grafana:
-  enabled: true
-  admin:
-    user: admin
-    password: ""
-  ingress:
-    enabled: true
-    host: example.com
-    path: /monitoring/grafana
-    annotations:
-      cert-manager.io/cluster-issuer: letsencrypt-prod
-    tls:
-      secretName: grafana-tls
-```
-
-### Minimal Installation
-
-To install only specific components:
-
-```yaml
-# minimal-values.yaml
-prometheus:
-  enabled: true
-loki:
-  enabled: true
-grafana:
-  enabled: true
-tempo:
-  enabled: false
-alloy:
-  enabled: false
-promtail:
-  enabled: false
-blackboxExporter:
-  enabled: false
-```
-
-```bash
-helm install observability . \
-  --values minimal-values.yaml \
-  --namespace observability
-```
-
-## Security defaults
-
-This chart optimises for a private cluster network, not a hostile one. Before exposing any component beyond the cluster, review:
-
-- **Grafana admin password** is generated on first install and stored in the `grafana-admin` Secret. Set `grafana.admin.password` to pin it. Upgrades keep the existing value rather than rotating it.
-- **Loki runs with `auth_enabled: false`** — any client reaching the service can read and write logs.
-- **Alloy's OTLP and Faro receivers allow all CORS origins** (`["*"]`), so any page can post telemetry if the receiver is reachable.
-- **The kubelet scrape job skips TLS verification** (`containerMonitoring.insecureSkipVerify`,
-  default `true`): kubelet serving certificates are usually self-signed and absent from the
-  cluster CA bundle. Set it to `false` where the kubelet cert is signed by a CA Prometheus trusts.
-- Nothing in the chart provisions NetworkPolicies.
-
-### Grafana sign-in via the application's session (`grafana.authProxy`)
-
-Off by default. A shim answers nginx's `auth_request` by forwarding the caller's cookie to
-`authProxy.validateUrl` and returning that username in `X-WEBAUTH-USER`, which Grafana trusts.
-
-⚠️ Grafana trusts that header from anything reaching its Service — the protection is entirely in
-front of Grafana. Three combinations are refused at render time:
-
-- empty `validateUrl` — the shim has nothing to resolve against.
-- `grafana.ingress.enabled: false` — the `auth_request` annotations live on that Ingress, so
-  nothing runs the subrequest and any pod can sign in as any user.
-- empty `whitelist` — Grafana would accept the header from any address, so any pod in the cluster
-  could sign in as any user.
-
-`authProxy.whitelist` is the set of addresses allowed to set the header, matched against the
-immediate peer — so it is the ingress controller's range, normally the cluster pod CIDR. A wrong
-value denies everyone rather than admitting anyone, and it only means anything on a controller
-that enforces `auth-url`.
-
-## Discovery mode (recommended for shared clusters)
-
-By default beacon *enumerates*: every consumer ConfigMap is listed in beacon's values, so adding an
-application instance means upgrading the beacon release. With `discovery.enabled: true` beacon
-*discovers* instead, and one beacon per cluster serves every namespace:
+Set `discovery.enabled: true` and applications instrument themselves, in their own namespace, with
+no change to the beacon release:
 
 ```yaml
 discovery:
   enabled: true
   namespaces: []          # empty = all namespaces
-  podLabels:              # pod label -> series/stream label
+  podLabels:              # pod label -> metric/log label
     env: env
     product: product
 ```
 
-A consuming application then owns its own telemetry, entirely within its own namespace:
-
-| what | how |
-|---|---|
-| **metrics** | annotate the pod `prometheus.io/scrape: "true"` (and `prometheus.io/port`) |
-| **logs** | nothing — the Alloy DaemonSet tails every pod it discovers |
-| **env / product labels** | set them as **pod labels**; `discovery.podLabels` maps them onto metrics and log streams |
-| **dashboards** | a ConfigMap labelled `grafana_dashboard: "1"`, in any namespace |
-| **Grafana alerts** | a ConfigMap labelled `grafana_alerting: "1"` |
-| **Prometheus rules** | a ConfigMap labelled `prometheus_rules: "1"` (Prometheus is reloaded automatically) |
-
-Nothing above requires a change to the beacon release, so per-instance pipelines can deploy
-independently of whoever owns the cluster's observability stack. Two instances on one cluster
-(`prod` and `preprod`) are separated by their `env` pod label, which reaches both metrics and logs.
-
-Label keys are configurable via `grafana.sidecar.dashboardLabel`, `grafana.sidecar.alertingLabel`
-and `prometheus.sidecar.rulesLabel`.
-
-⚠️ `discovery.containerLabel` defaults to `false` and should stay there: it scrapes one target per
-container instead of per pod, which on a 7-container Postgres pod was a 7× series multiplier that
-OOM-killed Prometheus.
-
-## Infrastructure scrape jobs
-
-All off by default, and none enabled implicitly by `discovery.enabled`.
-
-| values key | job | answers |
+| you want | in beacon | in your application |
 |---|---|---|
-| `nodeExporter.enabled` | `node-exporter` | how loaded is the **host** — node CPU, RAM, disk, network |
-| `kubeStateMetrics.enabled` | `kube-state-metrics` | what Kubernetes **declares** — pod phase, restarts, replicas, resource requests/limits |
-| `containerMonitoring.enabled` | `kubelet` | what a **container actually uses** — per-container CPU and working-set memory |
-| `postgresMonitoring.enabled` | `postgres` | Postgres exporter pods, one target per pod |
-| `ingressMonitoring.enabled` | `nginx-ingress` | ingress-nginx controller metrics |
-| `storageMonitoring.enabled` | `lukscryptwalker-csi` | the storage CSI's own metrics |
+| **metrics** | — | pod annotations `prometheus.io/scrape: "true"`, `prometheus.io/port`, optional `prometheus.io/path` |
+| **logs** | — | nothing; the Alloy DaemonSet tails every discovered pod |
+| **JSON log fields as labels** | `alloy.logs.json.labels` | pod annotation `beacon/logs: json` |
+| **traces** | — | send OTLP to `alloy.<ns>.svc:4318` (HTTP) or `:4317` (gRPC) |
+| **trace/log labels from resource attrs** | `alloy.otlp.resourceLabels` | set the matching OTEL resource attributes |
+| **browser RUM** | `alloy.faro.labels`, optional `alloy.faro.apiKey` | POST Faro payloads to `alloy.<ns>.svc:12347/collect` |
+| **`env` / `product` labels** | `discovery.podLabels` | set them as **pod labels** |
+| **uptime probes** | — | Service annotations `prometheus.io/probe: "true"`, optional `prometheus.io/probe_module`, `prometheus.io/probe_path` (default `/health`), `prometheus.io/probe_name` |
+| **dashboards** | — | ConfigMap labelled `grafana_dashboard: "1"`, any namespace |
+| **Grafana alerts** | — | ConfigMap labelled `grafana_alerting: "1"` |
+| **Prometheus rules** | — | ConfigMap labelled `prometheus_rules: "1"` |
 
-The first three do not overlap: the host is node-exporter, the *limit* is kube-state-metrics, and
-actual usage is `containerMonitoring`. Without it `container_cpu_usage_seconds_total` and
-`container_memory_working_set_bytes` do not exist and panels built on them render empty.
+Label keys are configurable: `grafana.sidecar.dashboardLabel`, `grafana.sidecar.alertingLabel`,
+`prometheus.sidecar.rulesLabel`.
 
-```yaml
-containerMonitoring:
-  enabled: true
-  metricsPath: /metrics/resource   # or /metrics/cadvisor for the full set
-```
+⚠️ `discovery.containerLabel` must stay `false`. It scrapes one target per container instead of per
+pod — on a 7-container Postgres pod that is a 7× series multiplier.
 
-`/metrics/cadvisor` adds per-filesystem, per-interface and CFS-throttling detail at a much higher
-series count — pair it with `containerMonitoring.metricRelabelConfigs`.
+### Browser RUM must be same-origin
 
-`ingressMonitoring` and `storageMonitoring` point at a fixed `target` address; enabling either
-where that Service does not exist just adds a permanently `down` target.
+A front-end with `connect-src 'self'` in its CSP cannot post to the Alloy Service directly. Proxy a
+path on the front's own origin (e.g. `/monitoring/alloy/faro/`) to the `alloy` Service, or expose
+`alloy.ingress`. The receiver answers `Access-Control-Allow-Origin: *`, so a *credentialed*
+cross-origin request is refused by the browser regardless.
 
-Both pod-discovering jobs drop pods in phase `Failed` or `Succeeded`, which can never answer a
-scrape.
+⚠️ An invalid Loki label name in `alloy.faro.labels` makes the whole Alloy Deployment crash-loop —
+the chart fails the render instead.
 
-## Log collection: Alloy vs promtail
+### Without discovery
 
-With `discovery.enabled`, an **Alloy DaemonSet** (`alloy.logs.enabled`, default on) discovers pods
-cluster-wide and tails their container logs, attaching `namespace`, `pod`, `container`, `app` and
-whatever you map in `discovery.podLabels`. Nothing has to be listed in beacon's values, so a new
-application instance needs no change to the beacon release.
+The chart otherwise enumerates: list consumer ConfigMaps in `grafana.dashboardConfigMaps`,
+`grafana.alertingConfigMaps` and `prometheus.rulesConfigMaps`, and log targets in
+`promtailTargets`. Adding an application then means upgrading the beacon release. promtail reached
+end of life in March 2026; new installs should use discovery.
 
-`promtail` remains for installs that still enumerate `promtailTargets`, and renders only when that
-list is non-empty — so the two never ship the same logs twice. Note that **promtail reached
-end-of-life in March 2026**; new installs should use discovery.
-
-## Consumer Integration
-
-Beacon is a pure infrastructure chart. Consumer projects (applications that use beacon for monitoring) provide their own dashboards, alerts, and scrape targets via ConfigMaps. Grafana mounts these ConfigMaps using **projected volumes** driven by the `dashboardConfigMaps` and `alertingConfigMaps` values.
-
-There are two supported consumer models:
-
-### Model A: Standalone ConfigMaps (recommended for most projects)
-
-Create ConfigMaps in your project's kubernetes manifests containing Grafana dashboard JSON and alert rules. Apply them to the same namespace as beacon before deploying.
-
-**Dashboard ConfigMap:**
+## Consumer ConfigMaps
 
 ```yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: grafana-dashboard-myproject
-  namespace: <namespace>
+  labels:
+    grafana_dashboard: "1"        # with discovery; otherwise list the name in values
 data:
-  myproject-monitoring.json: |
+  myproject.json: |
     { "title": "My Project", "uid": "myproject", "panels": [ ... ] }
 ```
 
-**Alert rules ConfigMap:**
+Alert rules are the same with `grafana_alerting: "1"`, Prometheus rules with
+`prometheus_rules: "1"` (Prometheus reloads automatically).
 
-```yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: grafana-alerting-myproject
-  namespace: <namespace>
-data:
-  myproject-alertrules.yaml: |
-    apiVersion: 1
-    groups:
-      - orgId: 1
-        name: My Alerts
-        folder: My Project
-        rules: [ ... ]
-```
+- Data keys must be unique across the ConfigMaps listed in one value — a projected volume cannot
+  merge two sources exposing the same key.
+- Consumer ConfigMaps are mounted `optional`, so a typo leaves panels empty rather than wedging the
+  pod.
+- beacon cannot checksum them, so after editing one restart the pod yourself, or `POST /-/reload`
+  for Prometheus rules. Grafana reloads dashboards on its own interval.
 
-Then reference them in beacon's values so Grafana mounts them via projected volumes:
+⚠️ Changing a dashboard's `uid` in place does not work — Grafana keeps serving the old one. Delete
+the ConfigMap, let it disappear, then apply the new one.
 
-```yaml
-grafana:
-  dashboardConfigMaps:
-    - grafana-dashboard-myproject
-  alertingConfigMaps:
-    - grafana-alerting-myproject
-```
-
-**Prometheus rule ConfigMaps** work the same way — list them under `prometheus.rulesConfigMaps` and they are mounted into `/etc/prometheus/alerts`, where `rule_files: '*.yml'` picks them up:
-
-```yaml
-prometheus:
-  rulesConfigMaps:
-    - prometheus-alerts-myproject
-```
-
-Every consumer-supplied ConfigMap is mounted as `optional`, so a name typo or a ConfigMap applied to the wrong namespace leaves the panels or rules missing rather than wedging the pod in `ContainerCreating`.
-
-Chart-owned config changes (scrape targets, promtail targets, retention, ports) roll the affected pod automatically via a `checksum/config` annotation. Consumer ConfigMaps live outside the chart, so beacon cannot checksum them: after editing one, restart the pod yourself — or, for Prometheus rules, `POST /-/reload` (the chart runs with `--web.enable-lifecycle`). Grafana picks up dashboard and alerting file changes on its own provisioning interval.
-
-Data keys must be unique across the listed ConfigMaps — a projected volume cannot merge two sources that expose the same key. The older `prometheus.alerts: true` gate still works and is equivalent to `rulesConfigMaps: ["prometheus-alerts"]`, but it allows only one consumer per namespace.
-
-### Model B: Subchart wrapper (for projects needing helm templating)
-
-If your dashboards need helm template rendering (e.g., parameterized job names), create a wrapper chart with beacon as a dependency:
-
-Vendor beacon inside your repo — a git submodule is the usual way — and point the dependency at that path:
-
-```yaml
-# my-observability/Chart.yaml
-apiVersion: v2
-name: my-observability
-version: 1.0.0
-dependencies:
-  - name: beacon
-    version: "2.2.0"
-    repository: "file://./beacon"    # a path INSIDE your repo
-```
-
-```bash
-git submodule add https://github.com/Algonomia/beacon.git my-observability/beacon
-helm dependency update my-observability
-```
-
-A `file://` path that climbs out of the consumer repo (`file://../../../beacon`) resolves only on a machine where both repos happen to sit side by side. Whether that breaks CI depends on whether your pipeline packages the chart at all — many do not, in which case the failure only hits whoever deploys by hand.
-
-Place consumer ConfigMap templates in `my-observability/templates/`. Nest beacon values under the `beacon:` key in your values.yaml.
-
-### Adding Scrape Targets
-
-Use `extraScrapeConfigs` in values to add Prometheus scrape targets:
+## Extra scrape targets
 
 ```yaml
 extraScrapeConfigs: |
@@ -339,125 +112,71 @@ extraScrapeConfigs: |
       - targets: ["my-exporter:9187"]
 ```
 
-## Architecture
+## Infrastructure scrape jobs
 
-```
-┌─────────────┐
-│  Frontend   │──(RUM)─────┐
-└─────────────┘            │
-                           ▼
-┌─────────────┐      ┌──────────┐
-│  Backend    │─OTLP─▶│  Alloy   │
-└─────────────┘      └──────────┘
-                           │
-      ┌────────────────────┼────────────────────┐
-      │                    │                    │
-      ▼                    ▼                    ▼
-┌──────────┐         ┌──────────┐       ┌──────────┐
-│   Loki   │◀─logs───│ Promtail │       │  Tempo   │
-│  (Logs)  │         │(DaemonSet│       │ (Traces) │
-└──────────┘         └──────────┘       └──────────┘
-      │                                        │
-      └──────────┐         ┌──────────────────┘
-                 ▼         ▼
-           ┌─────────────────────┐
-           │   Grafana           │
-           │  (Visualization)    │
-           └─────────────────────┘
-                     ▲
-                     │
-               ┌──────────┐
-               │Prometheus│
-               │(Metrics) │
-               └──────────┘
-```
+All off by default; none is enabled implicitly by `discovery.enabled`.
 
-## Accessing Grafana
+| values key | job | answers |
+|---|---|---|
+| `nodeExporter.enabled` | `node-exporter` | host CPU, RAM, disk, network |
+| `kubeStateMetrics.enabled` | `kube-state-metrics` | what Kubernetes declares — pod phase, restarts, replicas, requests/limits |
+| `containerMonitoring.enabled` | `kubelet` | what a container actually uses — per-container CPU and working-set memory |
+| `postgresMonitoring.enabled` | `postgres` | Postgres exporter pods, one target per pod |
+| `ingressMonitoring.enabled` | `nginx-ingress` | ingress-nginx controller metrics |
+| `storageMonitoring.enabled` | `lukscryptwalker-csi` | the storage CSI's metrics |
 
-After installation, Grafana will be available at:
-- **URL**: https://{{ domain }}{{ basePath }}/grafana
-- **Username**: admin (configurable)
-- **Password**: generated on first install — `kubectl get secret -n <namespace> grafana-admin -o jsonpath='{.data.admin-password}' | base64 -d`
-
-## Monitoring Targets
-
-The stack automatically monitors:
-- All deployed components (self-monitoring)
-- Application backend (/ping health endpoint)
-- Custom targets (configure in `values.yaml`)
-
-## Data Retention
-
-Default retention periods:
-- **Prometheus**: 15 days
-- **Loki**: 7 days (168h)
-- **Tempo**: Based on storage capacity
-
-Configure in `values.yaml`:
+The first three do not overlap: the host is node-exporter, the *limit* is kube-state-metrics, actual
+usage is `containerMonitoring`. Without it `container_cpu_usage_seconds_total` and
+`container_memory_working_set_bytes` do not exist.
 
 ```yaml
-prometheus:
-  retention: 30d
-
-loki:
-  retention: 336h  # 14 days
+containerMonitoring:
+  enabled: true
+  metricsPath: /metrics/resource   # /metrics/cadvisor adds filesystem, network and CFS
+                                   # throttling detail at ~26x the series count
 ```
 
-## Storage
+`ingressMonitoring` and `storageMonitoring` point at a fixed `target` address; enabling either where
+that Service does not exist adds a permanently `down` target.
 
-Each persistent component requires storage:
-- Prometheus: 5Gi default
-- Loki: 5Gi default
-- Tempo: 5Gi default
-- Grafana: 1Gi default
+## Log storage
 
-Total: ~16Gi minimum
+`loki.retentionStreams` sets retention per stream selector; `loki.objectStore` moves chunks to an
+S3-compatible bucket.
 
-## Troubleshooting
+⚠️ Never flip `object_store` on an existing install. The index still resolves old chunk references
+to the filesystem and the *entire* query fails. The chart adds a second schema period starting at
+`loki.objectStore.from` (a future 00:00 UTC date) and keeps serving older chunks from the PVC, which
+also still holds the WAL and compactor state.
 
-### Check deployment status
+## Security defaults
 
-```bash
-helm status observability -n observability
-kubectl get all -n observability -l app.kubernetes.io/instance=observability
-```
+Tuned for a private cluster network. Before exposing anything beyond the cluster:
 
-### View logs
+- **Grafana's admin password** is generated on first install into the `grafana-admin` Secret and
+  preserved across upgrades. Pin it with `grafana.admin.password`. Under `helm template`, `--dry-run`
+  or Argo CD the lookup returns empty and a new password is rendered each time.
+- **Loki runs with `auth_enabled: false`** — anything reaching the Service can read and write logs.
+- **Alloy's OTLP and Faro receivers allow all CORS origins.**
+- **The kubelet scrape job skips TLS verification** (`containerMonitoring.insecureSkipVerify`,
+  default `true`); kubelet certificates are usually self-signed. Set `false` where Prometheus trusts
+  the signing CA.
+- Nothing here provisions NetworkPolicies.
 
-```bash
-# Grafana
-kubectl logs -n observability -l app=grafana
+### Grafana sign-in via the application's session
 
-# Prometheus
-kubectl logs -n observability -l app=prometheus
+`grafana.authProxy`, off by default. A shim answers nginx's `auth_request` by forwarding the caller's
+cookie to `authProxy.validateUrl` and returning that username in `X-WEBAUTH-USER`. `validateUrl`
+must accept the cookie and return HTTP 200 with a JSON body containing `authProxy.usernameField`.
 
-# Loki
-kubectl logs -n observability -l app=loki
-```
+Grafana trusts that header from anything reaching its Service, so all the protection is in front of
+it. Three combinations are refused at render time: empty `validateUrl`, `grafana.ingress.enabled:
+false`, and empty `whitelist`.
 
-### Common issues
-
-**Grafana won't start**: Check if storage PVC is bound
-```bash
-kubectl get pvc -n observability
-```
-
-**No metrics in Prometheus**: Check Alloy is forwarding metrics
-```bash
-kubectl logs -n observability -l app=alloy
-```
-
-**Ingress 404**: Verify ingress controller and annotations
-
-## Development
-
-To modify the chart:
-
-1. Edit `values.yaml` or template files
-2. Lint the chart: `helm lint .`
-3. Test with dry-run: `helm install test . --dry-run --debug`
-4. Install: `helm install test . -n test-namespace`
+`whitelist` is matched against the immediate peer — the ingress controller's range, normally the
+cluster pod CIDR. A wrong value denies everyone rather than admitting anyone, and it means nothing
+on a controller that does not enforce `auth-url`.
 
 ## License
 
-This project is licensed under the [GNU Affero General Public License v3.0](LICENSE.md).
+[GNU Affero General Public License v3.0](LICENSE.md).
