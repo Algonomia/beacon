@@ -90,6 +90,6 @@ roleRef:
   name: {{ include "beacon.namespace" . }}-kube-state-metrics
 subjects:
 - kind: ServiceAccount
-  name: {{ include "beacon.namespace" . }}-kube-state-metrics
+  name: kube-state-metrics
   namespace: {{ include "beacon.namespace" . }}
 {{- end }}
