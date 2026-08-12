@@ -133,6 +133,9 @@ This chart optimises for a private cluster network, not a hostile one. Before ex
 - **Grafana admin password** is generated on first install and stored in the `grafana-admin` Secret. Set `grafana.admin.password` to pin it. Upgrades keep the existing value rather than rotating it.
 - **Loki runs with `auth_enabled: false`** — any client reaching the service can read and write logs.
 - **Alloy's OTLP and Faro receivers allow all CORS origins** (`["*"]`), so any page can post telemetry if the receiver is reachable.
+- **The kubelet scrape job skips TLS verification** (`containerMonitoring.insecureSkipVerify`,
+  default `true`): kubelet serving certificates are usually self-signed and absent from the
+  cluster CA bundle. Set it to `false` where the kubelet cert is signed by a CA Prometheus trusts.
 - Nothing in the chart provisions NetworkPolicies.
 
 ### Grafana sign-in via the application's session (`grafana.authProxy`)
