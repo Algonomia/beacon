@@ -144,13 +144,17 @@ Off by default. A shim answers nginx's `auth_request` by forwarding the caller's
 `authProxy.validateUrl` and returning that username in `X-WEBAUTH-USER`, which Grafana trusts.
 
 ⚠️ Grafana trusts that header from anything reaching its Service — the protection is entirely in
-front of Grafana. Two combinations are refused at render time:
+front of Grafana. Three combinations are refused at render time:
 
 - empty `validateUrl` — the shim has nothing to resolve against.
 - `grafana.ingress.enabled: false` — the `auth_request` annotations live on that Ingress, so
   nothing runs the subrequest and any pod can sign in as any user.
+- empty `whitelist` — Grafana would accept the header from any address, so any pod in the cluster
+  could sign in as any user.
 
-`authProxy.whitelist` restricts who may set the header, and only means anything on a controller
+`authProxy.whitelist` is the set of addresses allowed to set the header, matched against the
+immediate peer — so it is the ingress controller's range, normally the cluster pod CIDR. A wrong
+value denies everyone rather than admitting anyone, and it only means anything on a controller
 that enforces `auth-url`.
 
 ## Discovery mode (recommended for shared clusters)
