@@ -33,7 +33,7 @@ kubeStateMetrics:
   enabled: false
   image:
     repository: registry.k8s.io/kube-state-metrics/kube-state-metrics
-    tag: v2.10.1
+    tag: v2.20.0
   resources:
     requests:
       cpu: 10m
@@ -46,7 +46,7 @@ nodeExporter:
   enabled: false
   image:
     repository: prom/node-exporter
-    tag: v1.7.0
+    tag: v1.12.1
   resources:
     requests:
       cpu: 10m
@@ -98,7 +98,7 @@ prometheus:
   enabled: true
   image:
     repository: prom/prometheus
-    tag: v2.48.0
+    tag: v3.14.0
     pullPolicy: IfNotPresent
 
   resources:
@@ -118,7 +118,7 @@ prometheus:
 
   sidecar:
     enabled: true
-    image: kiwigrid/k8s-sidecar:1.27.4
+    image: kiwigrid/k8s-sidecar:2.11.2
     rulesLabel: prometheus_rules
     resources:
       requests:
@@ -140,7 +140,7 @@ loki:
   enabled: true
   image:
     repository: grafana/loki
-    tag: "2.9.0"
+    tag: "3.7.7"
     pullPolicy: IfNotPresent
 
   resources:
@@ -193,7 +193,7 @@ tempo:
   enabled: true
   image:
     repository: grafana/tempo
-    tag: "2.3.0"
+    tag: "3.0.3"
     pullPolicy: IfNotPresent
 
   resources:
@@ -208,6 +208,14 @@ tempo:
     size: 5Gi
     storageClassName: ""
 
+  retention: 24h
+
+  podSecurityContext:
+    runAsUser: 10001
+    runAsGroup: 10001
+    fsGroup: 10001
+    fsGroupChangePolicy: OnRootMismatch
+
   service:
     type: ClusterIP
     port: 3200
@@ -218,7 +226,7 @@ alloy:
   enabled: true
   image:
     repository: grafana/alloy
-    tag: v1.4.2
+    tag: v1.19.2
     pullPolicy: IfNotPresent
 
   resources:
@@ -285,7 +293,7 @@ promtail:
   enabled: true
   image:
     repository: grafana/promtail
-    tag: "2.9.0"
+    tag: "3.6.11"
     pullPolicy: IfNotPresent
 
   resources:
@@ -296,13 +304,11 @@ promtail:
       cpu: 200m
       memory: 128Mi
 
-  logPath: /var/log/pods
-
 blackboxExporter:
   enabled: true
   image:
     repository: prom/blackbox-exporter
-    tag: latest
+    tag: v0.28.0
     pullPolicy: IfNotPresent
 
   resources:
@@ -321,7 +327,7 @@ grafana:
   enabled: true
   image:
     repository: grafana/grafana
-    tag: "10.4.4"
+    tag: "12.4.11"
     pullPolicy: IfNotPresent
 
   resources:
@@ -373,7 +379,7 @@ grafana:
     # who may set the header
     whitelist: ""
     defaultRole: Viewer
-    image: python:3.12-alpine
+    image: python:3.14-alpine
     service:
       port: 8080
     resources:
@@ -386,7 +392,7 @@ grafana:
 
   sidecar:
     enabled: true
-    image: kiwigrid/k8s-sidecar:1.27.4
+    image: kiwigrid/k8s-sidecar:2.11.2
     dashboardLabel: grafana_dashboard
     alertingLabel: grafana_alerting
     resources:

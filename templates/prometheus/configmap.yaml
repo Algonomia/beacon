@@ -23,6 +23,7 @@ data:
 
       {{- if .Values.discovery.enabled }}
       - job_name: 'kubernetes-pods'
+        fallback_scrape_protocol: PrometheusText0.0.4
         kubernetes_sd_configs:
           - role: pod
             {{- with .Values.discovery.namespaces }}

@@ -42,6 +42,7 @@ metadata:
   namespace: {{ include "beacon.namespace" . }}
   labels:
     {{- include "beacon.labels" . | nindent 4 }}
+    {{- include "beacon.componentLabels" "kube-state-metrics" | nindent 4 }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -49,6 +50,7 @@ metadata:
   name: {{ include "beacon.namespace" . }}-kube-state-metrics
   labels:
     {{- include "beacon.labels" . | nindent 4 }}
+    {{- include "beacon.componentLabels" "kube-state-metrics" | nindent 4 }}
 rules:
 - apiGroups: [""]
   resources:
@@ -57,6 +59,7 @@ rules:
   - nodes
   - pods
   - services
+  - serviceaccounts
   - resourcequotas
   - replicationcontrollers
   - limitranges
@@ -77,6 +80,46 @@ rules:
   - cronjobs
   - jobs
   verbs: ["list", "watch"]
+- apiGroups: ["autoscaling"]
+  resources:
+  - horizontalpodautoscalers
+  verbs: ["list", "watch"]
+- apiGroups: ["policy"]
+  resources:
+  - poddisruptionbudgets
+  verbs: ["list", "watch"]
+- apiGroups: ["certificates.k8s.io"]
+  resources:
+  - certificatesigningrequests
+  verbs: ["list", "watch"]
+- apiGroups: ["discovery.k8s.io"]
+  resources:
+  - endpointslices
+  verbs: ["list", "watch"]
+- apiGroups: ["storage.k8s.io"]
+  resources:
+  - storageclasses
+  - volumeattachments
+  verbs: ["list", "watch"]
+- apiGroups: ["admissionregistration.k8s.io"]
+  resources:
+  - mutatingadmissionpolicies
+  - mutatingadmissionpolicybindings
+  - mutatingwebhookconfigurations
+  - validatingadmissionpolicies
+  - validatingadmissionpolicybindings
+  - validatingwebhookconfigurations
+  verbs: ["list", "watch"]
+- apiGroups: ["networking.k8s.io"]
+  resources:
+  - networkpolicies
+  - ingressclasses
+  - ingresses
+  verbs: ["list", "watch"]
+- apiGroups: ["coordination.k8s.io"]
+  resources:
+  - leases
+  verbs: ["list", "watch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -84,6 +127,7 @@ metadata:
   name: {{ include "beacon.namespace" . }}-kube-state-metrics
   labels:
     {{- include "beacon.labels" . | nindent 4 }}
+    {{- include "beacon.componentLabels" "kube-state-metrics" | nindent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole

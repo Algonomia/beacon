@@ -1,12 +1,6 @@
 {{- if and .Values.alloy.enabled .Values.alloy.ingress.enabled }}
 {{- $ingress := .Values.alloy.ingress }}
-{{- $hosts := $ingress.hosts | default (list) }}
-{{- if $ingress.host }}
-{{- $hosts = append $hosts $ingress.host }}
-{{- end }}
-{{- if not $hosts }}
-{{- fail "alloy.ingress.enabled is true but neither alloy.ingress.host nor alloy.ingress.hosts is set" }}
-{{- end }}
+{{- $host := required "alloy.ingress.host is required" $ingress.host }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -25,14 +19,11 @@ spec:
   {{- if $ingress.tls }}
   tls:
     - hosts:
-        {{- range $hosts }}
-        - {{ . | quote }}
-        {{- end }}
+        - {{ $host | quote }}
       secretName: {{ $ingress.tls.secretName }}
   {{- end }}
   rules:
-  {{- range $hosts }}
-  - host: {{ . | quote }}
+  - host: {{ $host | quote }}
     http:
       paths:
       - path: {{ $ingress.path }}
@@ -41,6 +32,5 @@ spec:
           service:
             name: alloy
             port:
-              number: {{ $.Values.alloy.service.faroPort }}
-  {{- end }}
+              number: {{ .Values.alloy.service.faroPort }}
 {{- end }}

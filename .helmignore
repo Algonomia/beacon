@@ -1,37 +1,15 @@
-# Patterns to ignore when building packages.
-# This supports shell glob matching, relative path matching, and
-# negation (prefixed with !). Only one pattern per line.
-
-# Common VCS dirs
 .git/
 .gitignore
-.gitattributes
-.hgignore
-.hg/
-.svn/
-
-# Common backup files
+.github/
 *.swp
 *.bak
 *.tmp
 *.orig
 *~
-
-# OS files
 .DS_Store
-Thumbs.db
-
-# Documentation
-INSTALL.md
-docs/
-
-# Examples and test files
-examples/
-test/
-tests/
-.github/
-
-# CI/CD
-.gitlab-ci.yml
-.travis.yml
-Jenkinsfile
+*.local.md
+*.private.md
+.notes/
+.scratch/
+.DONTCOMMIT*
+DONTCOMMIT*

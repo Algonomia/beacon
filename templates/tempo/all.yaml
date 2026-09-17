@@ -22,15 +22,15 @@ data:
             http:
               endpoint: 0.0.0.0:{{ .Values.tempo.service.otlpHttpPort }}
 
-    ingester:
-      max_block_duration: 5m
-      complete_block_timeout: 5m
-      trace_idle_period: 10s
-      flush_check_period: 10s
+    backend_scheduler:
+      provider:
+        compaction:
+          compaction:
+            block_retention: {{ .Values.tempo.retention }}
 
-    compactor:
+    backend_worker:
       compaction:
-        block_retention: 24h
+        block_retention: {{ .Values.tempo.retention }}
 
     storage:
       trace:
@@ -81,6 +81,10 @@ spec:
         app: tempo
     spec:
       terminationGracePeriodSeconds: 60
+      {{- with .Values.tempo.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: tempo
           image: {{ .Values.tempo.image.repository }}:{{ .Values.tempo.image.tag }}
@@ -101,13 +105,6 @@ spec:
               mountPath: /var/tempo
           resources:
             {{- toYaml .Values.tempo.resources | nindent 12 }}
-          lifecycle:
-            preStop:
-              exec:
-                command:
-                  - /bin/sh
-                  - -c
-                  - sleep 15
       volumes:
         - name: config
           configMap:

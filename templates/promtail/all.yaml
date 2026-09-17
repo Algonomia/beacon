@@ -113,12 +113,6 @@ spec:
           volumeMounts:
             - name: config
               mountPath: /etc/promtail
-            - name: varlog
-              mountPath: /var/log
-              readOnly: true
-            - name: varlibdockercontainers
-              mountPath: /var/lib/docker/containers
-              readOnly: true
             - name: pods
               mountPath: /var/log/pods
               readOnly: true
@@ -128,12 +122,6 @@ spec:
         - name: config
           configMap:
             name: promtail-config
-        - name: varlog
-          hostPath:
-            path: /var/log
-        - name: varlibdockercontainers
-          hostPath:
-            path: /var/lib/docker/containers
         - name: pods
           hostPath:
             path: /var/log/pods

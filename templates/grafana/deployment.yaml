@@ -101,6 +101,8 @@ spec:
             value: {{ .Values.grafana.sidecar.dashboardLabel | quote }}
           - name: FOLDER
             value: /var/lib/grafana/dashboards
+          - name: HEALTH_PORT
+            value: "8081"
           - name: RESOURCE
             value: configmap
           - name: METHOD
@@ -119,6 +121,8 @@ spec:
             value: {{ .Values.grafana.sidecar.alertingLabel | quote }}
           - name: FOLDER
             value: /etc/grafana/provisioning/alerting
+          - name: HEALTH_PORT
+            value: "8082"
           # alerting is read at startup only
           - name: REQ_URL
             value: http://localhost:{{ .Values.grafana.service.port }}/api/admin/provisioning/alerting/reload

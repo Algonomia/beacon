@@ -1,6 +1,6 @@
-🔭 Observability Stack has been deployed!
+beacon {{ .Chart.Version }} deployed.
 
-Components installed:
+Components:
 {{- if .Values.prometheus.enabled }}
   ✓ Prometheus  - Metrics collection and storage
 {{- end }}

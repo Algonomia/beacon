@@ -75,7 +75,6 @@ data:
         listen_port = {{ .Values.alloy.service.lokiPushPort }}
       }
       forward_to = [loki.write.default.receiver]
-      // Keep labels sent by Promtail (app, namespace, etc.)
     }
 
     otelcol.exporter.prometheus "default" {
