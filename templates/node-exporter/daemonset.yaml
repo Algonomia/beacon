@@ -31,6 +31,11 @@ spec:
         - containerPort: 9100
           name: metrics
           hostPort: 9100
+        readinessProbe:
+          httpGet:
+            path: /
+            port: metrics
+          periodSeconds: 10
         resources:
           {{- toYaml .Values.nodeExporter.resources | nindent 10 }}
         volumeMounts:

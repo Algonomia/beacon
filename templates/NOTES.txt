@@ -13,7 +13,7 @@ Components:
 {{- if .Values.alloy.enabled }}
   ✓ Alloy       - Telemetry pipeline (OTLP + Faro RUM)
 {{- end }}
-{{- if .Values.promtail.enabled }}
+{{- if and .Values.promtail.enabled .Values.promtailTargets }}
   ✓ Promtail    - Log collection (DaemonSet)
 {{- end }}
 {{- if .Values.blackboxExporter.enabled }}

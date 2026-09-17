@@ -177,6 +177,8 @@ spec:
         app: alloy-logs
     spec:
       serviceAccountName: alloy-logs
+      tolerations:
+        - operator: Exists
       containers:
         - name: alloy
           image: {{ .Values.alloy.image.repository }}:{{ .Values.alloy.image.tag }}
@@ -202,6 +204,11 @@ spec:
             - name: pods
               mountPath: /var/log/pods
               readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /-/ready
+              port: http
+            periodSeconds: 10
           resources:
             {{- toYaml .Values.alloy.logs.resources | nindent 12 }}
       volumes:

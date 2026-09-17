@@ -29,6 +29,10 @@ spec:
       {{- if include "beacon.prometheus.kubeSD" . }}
       serviceAccountName: prometheus
       {{- end }}
+      {{- with .Values.prometheus.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: prometheus
           image: {{ .Values.prometheus.image.repository }}:{{ .Values.prometheus.image.tag }}
@@ -51,6 +55,11 @@ spec:
             - name: alerts
               mountPath: /etc/prometheus/alerts
             {{- end }}
+          readinessProbe:
+            httpGet:
+              path: /-/ready
+              port: http
+            periodSeconds: 10
           resources:
             {{- toYaml .Values.prometheus.resources | nindent 12 }}
         {{- if and .Values.discovery.enabled .Values.prometheus.sidecar.enabled }}

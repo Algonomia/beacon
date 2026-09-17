@@ -15,6 +15,14 @@ data:
 
     rule_files:
       - '/etc/prometheus/alerts/*.yml'
+    {{- with .Values.prometheus.alertmanagers }}
+
+    alerting:
+      alertmanagers:
+        - static_configs:
+            - targets:
+                {{- toYaml . | nindent 16 }}
+    {{- end }}
 
     scrape_configs:
       - job_name: 'prometheus'
@@ -139,6 +147,10 @@ data:
             regex: (.+);(.+)
             target_label: __param_target
             replacement: http://$1$2
+          - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_probe_module, __address__]
+            regex: tcp_connect;(.+)
+            target_label: __param_target
+            replacement: $1
           - source_labels: [__param_target]
             target_label: instance
           - source_labels: [__meta_kubernetes_service_name]
@@ -181,13 +193,13 @@ data:
       {{- end }}
 
       {{- if .Values.containerMonitoring.enabled }}
-      - job_name: {{ .Values.containerMonitoring.jobName | default "kubelet" | quote }}
+      - job_name: {{ .Values.containerMonitoring.jobName | quote }}
         scheme: https
-        metrics_path: {{ .Values.containerMonitoring.metricsPath | default "/metrics/resource" }}
+        metrics_path: {{ .Values.containerMonitoring.metricsPath }}
         bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
         tls_config:
           ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-          insecure_skip_verify: {{ .Values.containerMonitoring.insecureSkipVerify | default true }}
+          insecure_skip_verify: {{ .Values.containerMonitoring.insecureSkipVerify }}
         kubernetes_sd_configs:
           - role: node
         relabel_configs:

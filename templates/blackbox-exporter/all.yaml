@@ -22,6 +22,11 @@ data:
           headers:
             # recognisable, so apps can discount probes
             User-Agent: beacon-blackbox/1
+      tcp_connect:
+        prober: tcp
+        timeout: 5s
+        tcp:
+          preferred_ip_protocol: "ip4"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -53,6 +58,11 @@ spec:
         volumeMounts:
         - name: config
           mountPath: /config
+        readinessProbe:
+          httpGet:
+            path: /-/healthy
+            port: http
+          periodSeconds: 10
         resources:
           {{- toYaml .Values.blackboxExporter.resources | nindent 10 }}
       volumes:

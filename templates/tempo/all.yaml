@@ -103,6 +103,11 @@ spec:
               mountPath: /etc/tempo
             - name: storage
               mountPath: /var/tempo
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            periodSeconds: 10
           resources:
             {{- toYaml .Values.tempo.resources | nindent 12 }}
       volumes:

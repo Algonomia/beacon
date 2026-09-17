@@ -104,6 +104,8 @@ spec:
         app: promtail
     spec:
       serviceAccountName: promtail
+      tolerations:
+        - operator: Exists
       containers:
         - name: promtail
           image: {{ .Values.promtail.image.repository }}:{{ .Values.promtail.image.tag }}

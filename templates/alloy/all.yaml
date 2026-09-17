@@ -210,6 +210,11 @@ spec:
               mountPath: /etc/alloy
             - name: data
               mountPath: /var/lib/alloy/data
+          readinessProbe:
+            httpGet:
+              path: /-/ready
+              port: http
+            periodSeconds: 10
           resources:
             {{- toYaml .Values.alloy.resources | nindent 12 }}
       volumes:

@@ -48,10 +48,10 @@ discovery:
 | **trace/log labels from resource attrs** | `alloy.otlp.resourceLabels` | set the matching OTEL resource attributes |
 | **browser RUM** | `alloy.faro.labels`, optional `alloy.faro.apiKey` | POST Faro payloads to `alloy.<ns>.svc:12347/collect` |
 | **`env` / `product` labels** | `discovery.podLabels` | set them as **pod labels** |
-| **uptime probes** | — | Service annotations `prometheus.io/probe: "true"`, optional `prometheus.io/probe_module`, `prometheus.io/probe_path` (default `/health`), `prometheus.io/probe_name` |
+| **uptime probes** | — | Service annotations `prometheus.io/probe: "true"`, optional `prometheus.io/probe_module` (`http_2xx` or `tcp_connect`), `prometheus.io/probe_path` (default `/health`), `prometheus.io/probe_name` |
 | **dashboards** | — | ConfigMap labelled `grafana_dashboard: "1"`, any namespace |
 | **Grafana alerts** | — | ConfigMap labelled `grafana_alerting: "1"` |
-| **Prometheus rules** | — | ConfigMap labelled `prometheus_rules: "1"` |
+| **Prometheus rules** | `prometheus.alertmanagers`, or they notify nobody | ConfigMap labelled `prometheus_rules: "1"` |
 
 Label keys are configurable: `grafana.sidecar.dashboardLabel`, `grafana.sidecar.alertingLabel`,
 `prometheus.sidecar.rulesLabel`.
