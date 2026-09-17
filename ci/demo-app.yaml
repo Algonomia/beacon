@@ -1,0 +1,143 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: demo
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: demo-app
+  namespace: demo
+data:
+  app.py: |
+    import json, threading, time
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    class Handler(BaseHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"
+
+        def do_GET(self):
+            body = b"ok\n"
+            if self.path == "/metrics":
+                body = b"# TYPE demo_up gauge\ndemo_up 1\n"
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *args):
+            pass
+
+    def chatter():
+        while True:
+            print(json.dumps({"level": "info", "type": "demo", "msg": "tick"}), flush=True)
+            time.sleep(2)
+
+    threading.Thread(target=chatter, daemon=True).start()
+    ThreadingHTTPServer(("", 8080), Handler).serve_forever()
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo
+  namespace: demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: demo
+  template:
+    metadata:
+      labels:
+        app: demo
+        env: ci
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        beacon/logs: json
+    spec:
+      containers:
+        - name: demo
+          image: python:3.14-alpine
+          command: ["python3", "-u", "/app/app.py"]
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: app
+              mountPath: /app
+      volumes:
+        - name: app
+          configMap:
+            name: demo-app
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: demo
+  namespace: demo
+  annotations:
+    prometheus.io/probe: "true"
+spec:
+  selector:
+    app: demo
+  ports:
+    - port: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: demo-tcp
+  namespace: demo
+  annotations:
+    prometheus.io/probe: "true"
+    prometheus.io/probe_module: tcp_connect
+spec:
+  selector:
+    app: demo
+  ports:
+    - port: 8080
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: demo-dashboard
+  namespace: demo
+  labels:
+    grafana_dashboard: "1"
+data:
+  demo.json: |
+    {"uid": "demo", "title": "Demo", "schemaVersion": 39, "panels": []}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: demo-rules
+  namespace: demo
+  labels:
+    prometheus_rules: "1"
+data:
+  demo.yml: |
+    groups:
+      - name: demo
+        rules:
+          - alert: DemoDown
+            expr: demo_up == 0
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: demo-alerting
+  namespace: demo
+  labels:
+    grafana_alerting: "1"
+data:
+  demo.yaml: |
+    apiVersion: 1
+    contactPoints:
+      - orgId: 1
+        name: demo
+        receivers:
+          - uid: demo
+            type: webhook
+            settings:
+              url: http://demo.demo.svc:8080/alert

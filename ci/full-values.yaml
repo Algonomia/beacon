@@ -1,0 +1,17 @@
+discovery:
+  enabled: true
+  podLabels:
+    env: env
+kubeStateMetrics:
+  enabled: true
+nodeExporter:
+  enabled: true
+containerMonitoring:
+  enabled: true
+grafana:
+  admin:
+    password: ci-password
+  authProxy:
+    enabled: true
+    validateUrl: http://demo.demo.svc:8080/whoami
+    whitelist: 10.0.0.0/8

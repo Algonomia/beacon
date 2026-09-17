@@ -18,12 +18,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout chart
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           path: src
 
       - name: Set up Helm
-        uses: azure/setup-helm@v4
+        uses: azure/setup-helm@v5
 
       - name: Lint
         run: helm lint src
@@ -39,7 +39,7 @@ jobs:
           fi
 
       - name: Checkout gh-pages if it exists
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         continue-on-error: true
         with:
           ref: gh-pages
