@@ -144,10 +144,11 @@ data:
         }
       }
 
-      stage.label_drop {
-        values = ["logs_format"]
-      }
       {{- end }}
+
+      stage.label_drop {
+        values = ["filename"{{ if .Values.alloy.logs.json.labels }}, "logs_format"{{ end }}]
+      }
       forward_to = [loki.write.default.receiver]
     }
 

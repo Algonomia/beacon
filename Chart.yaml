@@ -4,7 +4,7 @@ description: Observability stack for Kubernetes - Prometheus, Loki, Tempo, Grafa
 type: application
 annotations:
   licenses: AGPL-3.0-only
-version: 3.0.2
+version: 3.0.3
 appVersion: "3.0"
 keywords:
   - observability
