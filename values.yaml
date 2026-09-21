@@ -413,6 +413,7 @@ grafana:
         memory: 128Mi
 
   podSecurityContext:
+    runAsUser: 472
     runAsGroup: 472
     fsGroup: 472
     fsGroupChangePolicy: OnRootMismatch
