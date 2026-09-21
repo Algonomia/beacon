@@ -99,7 +99,7 @@ spec:
   template:
     metadata:
       annotations:
-        checksum/config: {{ include "beacon.configChecksum" (list .Values.promtailTargets .Values.discovery .Values.alloy .Values.loki.service) }}
+        checksum/config: {{ include "beacon.configChecksum" (list .Chart.Version .Values.promtailTargets .Values.discovery .Values.alloy .Values.loki.service) }}
       labels:
         app: promtail
     spec:

@@ -141,7 +141,7 @@ spec:
   template:
     metadata:
       annotations:
-        checksum/config: {{ include "beacon.configChecksum" (list .Values.loki) }}
+        checksum/config: {{ include "beacon.configChecksum" (list .Chart.Version .Values.loki) }}
       labels:
         app: loki
     spec:

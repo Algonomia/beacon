@@ -93,7 +93,7 @@ spec:
   template:
     metadata:
       annotations:
-        checksum/config: {{ include "beacon.configChecksum" (list .Values.grafana.authProxy) }}
+        checksum/config: {{ include "beacon.configChecksum" (list .Chart.Version .Values.grafana.authProxy) }}
       labels:
         app: grafana-auth-shim
     spec:
