@@ -29,6 +29,7 @@ for ds in prometheus loki tempo; do
   retry "grafana datasource: $ds"                    sh -c "curl -sf --max-time 10 -u admin:ci-password http://127.0.0.1:13000/monitoring/grafana/api/datasources/uid/$ds/health | jq -e '.status == \"OK\"'"
 done
 retry "dashboard ConfigMap from another namespace"   graf /api/dashboards/uid/demo
+retry "datasource ConfigMap from another namespace" sh -c "curl -sf --max-time 10 -u admin:ci-password http://127.0.0.1:13000/monitoring/grafana/api/datasources/uid/demo-ds/health | jq -e '.status == \"OK\"'"
 retry "alerting ConfigMap from another namespace"    sh -c "curl -sf --max-time 10 -u admin:ci-password http://127.0.0.1:13000/monitoring/grafana/api/v1/provisioning/contact-points | jq -e '[.[].name] | index(\"demo\")'"
 
 nodes=$(kubectl get nodes --no-headers | wc -l)

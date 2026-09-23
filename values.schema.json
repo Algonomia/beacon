@@ -1000,6 +1000,9 @@
             },
             "resources": {
               "type": "object"
+            },
+            "datasourceLabel": {
+              "type": "string"
             }
           }
         },
@@ -1019,6 +1022,12 @@
           "type": "array",
           "items": {
             "type": "string"
+          }
+        },
+        "extraEnv": {
+          "type": "array",
+          "items": {
+            "type": "object"
           }
         }
       }

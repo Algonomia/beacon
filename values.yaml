@@ -404,6 +404,7 @@ grafana:
     image: kiwigrid/k8s-sidecar:2.11.2
     dashboardLabel: grafana_dashboard
     alertingLabel: grafana_alerting
+    datasourceLabel: grafana_datasource
     resources:
       requests:
         cpu: 10m
@@ -422,3 +423,5 @@ grafana:
     # - grafana-dashboard-myproject
   alertingConfigMaps: []
     # - grafana-alerting-myproject
+
+  extraEnv: []

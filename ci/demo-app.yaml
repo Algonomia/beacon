@@ -126,6 +126,24 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
+  name: demo-datasource
+  namespace: demo
+  labels:
+    grafana_datasource: "1"
+data:
+  demo.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Demo
+        uid: demo-ds
+        type: prometheus
+        access: proxy
+        url: http://prometheus.observability.svc:9090
+        isDefault: false
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
   name: demo-alerting
   namespace: demo
   labels:
